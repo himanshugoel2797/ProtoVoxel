@@ -31,6 +31,9 @@ static void initGLFW() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+#ifdef DEBUG
+    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
+#endif
 
     glfwInited = true;
   }
@@ -51,6 +54,7 @@ PVC::Window::Window(int w, int h, const char *name) {
 
 void PVC::Window::InitGL() {
   glfwMakeContextCurrent(winHndl);
+  glfwSwapInterval(0);
 
   gladLoadGL();
   const GLubyte *renderer = glGetString(GL_RENDERER);
@@ -86,7 +90,10 @@ void PVC::Window::StartFrame() {
   ImGui_ImplGlfw_NewFrame();
   ImGui::NewFrame();
 
-  ImGui::ShowDemoWindow(&show_demo_window);
+#ifdef DEBUG
+  ImGui::ShowMetricsWindow(&show_demo_window);
+  // ImGui::ShowDemoWindow(&show_demo_window);
+#endif
 }
 
 void PVC::Window::SwapBuffers() {
