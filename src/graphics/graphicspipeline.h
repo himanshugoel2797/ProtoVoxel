@@ -9,6 +9,7 @@
 #include "framebuffer.h"
 #include "gpubuffer.h"
 #include "shaderprogram.h"
+#include "texture.h"
 
 namespace ProtoVoxel::Graphics {
 class GraphicsDevice;
@@ -21,6 +22,11 @@ private:
     size_t sz;
   };
 
+  struct TextureBinding {
+    bool valid;
+    std::weak_ptr<Texture> texture;
+  };
+
   GLenum depthTest;
   std::weak_ptr<Framebuffer> fbuf;
   std::weak_ptr<ShaderProgram> program;
@@ -28,6 +34,7 @@ private:
   struct BufferBinding indexBuffer;
   struct BufferBinding *ssbos;
   struct BufferBinding *ubos;
+  struct TextureBinding *textures;
 
   glm::vec4 clear_color;
   float clear_depth;
@@ -52,5 +59,6 @@ public:
                size_t sz);
   void SetUBO(int bindpoint, std::weak_ptr<GpuBuffer> buffer, size_t offset,
               size_t sz);
+  void SetTexture(int bindpoint, std::weak_ptr<Texture> texture);
 };
 } // namespace ProtoVoxel::Graphics

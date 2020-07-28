@@ -5,15 +5,18 @@ namespace PVG = ProtoVoxel::Graphics;
 
 PVG::ComputePipeline::ComputePipeline() {
 
-  ssbos = new BufferBinding[GraphicsDevice::MAX_BUFFER_BINDPOINTS];
-  ubos = new BufferBinding[GraphicsDevice::MAX_BUFFER_BINDPOINTS];
-  for (int i = 0; i < GraphicsDevice::MAX_BUFFER_BINDPOINTS; i++) {
-    ssbos[i].buffer = std::weak_ptr<GpuBuffer>();
-    ubos[i].buffer = std::weak_ptr<GpuBuffer>();
+  ssbos = new BufferBinding[GraphicsDevice::MAX_BINDPOINTS];
+  ubos = new BufferBinding[GraphicsDevice::MAX_BINDPOINTS];
+  textures = new TextureBinding[GraphicsDevice::MAX_BINDPOINTS];
+  for (int i = 0; i < GraphicsDevice::MAX_BINDPOINTS; i++) {
+    ssbos[i].valid = false;
+    ubos[i].valid = false;
+    textures[i].valid = false;
   }
 }
 
 PVG::ComputePipeline::~ComputePipeline() {
+  delete[] textures;
   delete[] ubos;
   delete[] ssbos;
 }
@@ -34,7 +37,7 @@ void PVG::ComputePipeline::SetShaderProgram(
 void PVG::ComputePipeline::SetSSBO(int bindpoint,
                                    std::weak_ptr<GpuBuffer> buffer,
                                    size_t offset, size_t sz) {
-  if (bindpoint >= GraphicsDevice::MAX_BUFFER_BINDPOINTS)
+  if (bindpoint >= GraphicsDevice::MAX_BINDPOINTS)
     throw std::invalid_argument("bindpoint out of range.");
   ssbos[bindpoint].buffer = buffer;
   ssbos[bindpoint].offset = offset;
@@ -45,10 +48,18 @@ void PVG::ComputePipeline::SetSSBO(int bindpoint,
 void PVG::ComputePipeline::SetUBO(int bindpoint,
                                   std::weak_ptr<GpuBuffer> buffer,
                                   size_t offset, size_t sz) {
-  if (bindpoint >= GraphicsDevice::MAX_BUFFER_BINDPOINTS)
+  if (bindpoint >= GraphicsDevice::MAX_BINDPOINTS)
     throw std::invalid_argument("bindpoint out of range.");
   ubos[bindpoint].buffer = buffer;
   ubos[bindpoint].offset = offset;
   ubos[bindpoint].sz = sz;
   ubos[bindpoint].valid = !buffer.expired();
+}
+
+void PVG::ComputePipeline::SetTexture(int bindpoint,
+                                      std::weak_ptr<Texture> texture) {
+  if (bindpoint >= GraphicsDevice::MAX_BINDPOINTS)
+    throw std::invalid_argument("bindpoint out of range.");
+  textures[bindpoint].texture = texture;
+  textures[bindpoint].valid = !texture.expired();
 }

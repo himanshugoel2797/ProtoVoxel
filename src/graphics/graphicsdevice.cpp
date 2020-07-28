@@ -9,9 +9,9 @@ static std::shared_ptr<PVG::ShaderProgram> boundProgram;
 static std::shared_ptr<PVG::GpuBuffer> boundIndirectBuffer;
 static std::shared_ptr<PVG::GpuBuffer> boundIndexBuffer;
 static std::shared_ptr<PVG::GpuBuffer>
-    boundSSBOs[PVG::GraphicsDevice::MAX_BUFFER_BINDPOINTS];
+    boundSSBOs[PVG::GraphicsDevice::MAX_BINDPOINTS];
 static std::shared_ptr<PVG::GpuBuffer>
-    boundUBOs[PVG::GraphicsDevice::MAX_BUFFER_BINDPOINTS];
+    boundUBOs[PVG::GraphicsDevice::MAX_BINDPOINTS];
 
 void PVG::GraphicsDevice::ClearColor() { glClear(GL_COLOR_BUFFER_BIT); }
 
@@ -60,7 +60,7 @@ void PVG::GraphicsDevice::BindGraphicsPipeline(
     boundIndexBuffer = std::shared_ptr<GpuBuffer>(nullptr);
   }
 
-  for (int i = 0; i < MAX_BUFFER_BINDPOINTS; i++) {
+  for (int i = 0; i < MAX_BINDPOINTS; i++) {
     if (pipeline.ssbos[i].valid) {
       if (!pipeline.ssbos[i].buffer.expired()) {
         boundSSBOs[i] = pipeline.ssbos[i].buffer.lock();
@@ -115,7 +115,7 @@ void PVG::GraphicsDevice::BindComputePipeline(
     boundIndirectBuffer = std::shared_ptr<GpuBuffer>(nullptr);
   }
 
-  for (int i = 0; i < MAX_BUFFER_BINDPOINTS; i++) {
+  for (int i = 0; i < MAX_BINDPOINTS; i++) {
     if (pipeline.ssbos[i].valid) {
       if (!pipeline.ssbos[i].buffer.expired()) {
         boundSSBOs[i] = pipeline.ssbos[i].buffer.lock();

@@ -9,6 +9,7 @@ int main(int, char **) {
 
   while (!win.ShouldClose()) {
     glClear(GL_COLOR_BUFFER_BIT);
+    win.StartFrame();
     win.SwapBuffers();
   }
 }

@@ -11,7 +11,7 @@ namespace ProtoVoxel::Graphics {
 class GraphicsDevice {
 private:
 public:
-  static const int MAX_BUFFER_BINDPOINTS = 1024;
+  static const int MAX_BINDPOINTS = 1024;
 
   static void ClearColor();
   static void ClearDepth();
