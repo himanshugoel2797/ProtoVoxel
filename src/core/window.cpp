@@ -10,6 +10,7 @@ static void glfw_error_callback(int error, const char *desc) {
 }
 
 static bool glfwInited = false;
+static bool varraySetup = false;
 static void initGLFW() {
   if (!glfwInited) {
     if (!glfwInit()) {
@@ -45,6 +46,13 @@ void PVC::Window::InitGL() {
   gladLoadGL();
   const GLubyte *renderer = glGetString(GL_RENDERER);
   const GLubyte *version = glGetString(GL_VERSION);
+
+  if (!varraySetup) {
+    uint32_t varray = 0;
+    glGenVertexArrays(1, &varray);
+    glBindVertexArray(varray);
+    varraySetup = true;
+  }
 
   int w, h;
   glfwGetFramebufferSize(winHndl, &w, &h);
