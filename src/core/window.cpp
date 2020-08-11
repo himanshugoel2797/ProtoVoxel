@@ -8,21 +8,33 @@
 namespace PVC = ProtoVoxel::Core;
 namespace PVG = ProtoVoxel::Graphics;
 
-static void glfw_error_callback(int error, const char *desc) {
+static void glfw_error_callback(int error, const char *desc)
+{
   fprintf(stderr, "Glfw Error %d: %s\n", error, desc);
 }
 
-static void glfw_windowsize_callback(GLFWwindow *window, int w, int h) {
+static void glfw_windowsize_callback(GLFWwindow *window, int w, int h)
+{
   auto winPtr = (PVC::Window *)glfwGetWindowUserPointer(window);
   winPtr->ResizeHandler(w, h);
 }
 
+static void gl_debug_callback(GLenum src, GLenum type, GLuint id,
+                              GLenum severity, GLsizei length,
+                              const GLchar *message, const void *userParam)
+{
+  printf("OpenGL Debug Message: %s\n", message);
+}
+
 static bool glfwInited = false;
 static bool varraySetup = false;
-static void initGLFW() {
-  if (!glfwInited) {
+static void initGLFW()
+{
+  if (!glfwInited)
+  {
     glfwSetErrorCallback(glfw_error_callback);
-    if (!glfwInit()) {
+    if (!(bool)glfwInit())
+    {
       fprintf(stderr, "ERROR: Could not init glfw3.");
       return;
     }
@@ -33,41 +45,55 @@ static void initGLFW() {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 #ifdef DEBUG
     glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
+#else
+    glfwWindowHint(GLFW_CONTEXT_NO_ERROR, GLFW_TRUE);
 #endif
 
     glfwInited = true;
   }
 }
 
-static void termGLFW() {
-  if (glfwInited) {
+static void termGLFW()
+{
+  if (glfwInited)
+  {
     glfwTerminate();
   }
 }
 
-PVC::Window::Window(int w, int h, const char *name) {
+PVC::Window::Window(int w, int h, const char *name)
+{
   initGLFW();
 
   winHndl = glfwCreateWindow(w, h, name, NULL, NULL);
   glfwSetWindowUserPointer(winHndl, this);
 }
 
-void PVC::Window::InitGL() {
+void PVC::Window::InitGL()
+{
   glfwMakeContextCurrent(winHndl);
   glfwSwapInterval(0);
 
   gladLoadGL();
+#ifdef DEBUG
+  glDebugMessageCallback(gl_debug_callback, nullptr);
+  glEnable(GL_DEBUG_OUTPUT);
+#endif
   const GLubyte *renderer = glGetString(GL_RENDERER);
   const GLubyte *version = glGetString(GL_VERSION);
 
-  if (!varraySetup) {
+  if (!varraySetup)
+  {
     uint32_t varray = 0;
     glGenVertexArrays(1, &varray);
     glBindVertexArray(varray);
     varraySetup = true;
   }
 
-  int w, h;
+  glMaxShaderCompilerThreadsARB(0xffffffff);
+
+  int w,
+      h;
   glfwGetFramebufferSize(winHndl, &w, &h);
   this->fbuf = new PVG::Framebuffer(0, w, h);
 
@@ -82,7 +108,8 @@ void PVC::Window::InitGL() {
   printf("GL Version: %s\n", version);
 }
 
-void PVC::Window::StartFrame() {
+void PVC::Window::StartFrame()
+{
   glfwPollEvents();
 
   bool show_demo_window = true;
@@ -96,20 +123,23 @@ void PVC::Window::StartFrame() {
 #endif
 }
 
-void PVC::Window::SwapBuffers() {
+void PVC::Window::SwapBuffers()
+{
   ImGui::Render();
   ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
   glfwSwapBuffers(winHndl);
 }
 
-void PVC::Window::ResizeHandler(int w, int h) {
+void PVC::Window::ResizeHandler(int w, int h)
+{
   fbuf->w = w;
   fbuf->h = h;
 }
 
-bool PVC::Window::ShouldClose() { return glfwWindowShouldClose(winHndl); }
+bool PVC::Window::ShouldClose() { return (bool)glfwWindowShouldClose(winHndl); }
 
-PVC::Window::~Window() {
+PVC::Window::~Window()
+{
   ImGui_ImplOpenGL3_Shutdown();
   ImGui_ImplGlfw_Shutdown();
   ImGui::DestroyContext();
