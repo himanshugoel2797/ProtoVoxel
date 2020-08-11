@@ -1,12 +1,7 @@
 cmake_minimum_required(VERSION 3.0.0)
 project(ProtoVoxel VERSION 0.1.0)
 
-
-include(CTest)
-enable_testing()
-
 find_package(OpenGL REQUIRED)
-
 
 add_library(glad ${CMAKE_SOURCE_DIR}/glad/glad.c)
 target_include_directories(glad PRIVATE ${CMAKE_SOURCE_DIR})

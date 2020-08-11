@@ -4,17 +4,17 @@
 namespace PVG = ProtoVoxel::Graphics;
 
 PVG::ShaderProgram::ShaderProgram() {
-  id = glCreateProgram();
+    id = glCreateProgram();
 }
 
 PVG::ShaderProgram::~ShaderProgram() {
-  glDeleteProgram(id);
+    glDeleteProgram(id);
 }
 
 void PVG::ShaderProgram::Attach(ShaderSource const& src) {
-  glAttachShader(id, src.GetID());
+    glAttachShader(id, src.GetID());
 }
 
 void PVG::ShaderProgram::Link() {
-  glLinkProgram(id);
+    glLinkProgram(id);
 }
