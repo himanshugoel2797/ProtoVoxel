@@ -1,4 +1,7 @@
 #include "graphicspipeline.h"
+
+#include <stdexcept>
+
 #include "graphicsdevice.h"
 
 namespace PVG = ProtoVoxel::Graphics;
@@ -30,14 +33,17 @@ void PVG::GraphicsPipeline::SetFramebuffer(std::weak_ptr<Framebuffer> fbuf) {
   this->fbuf = fbuf;
 }
 
-void PVG::GraphicsPipeline::SetClearColor(glm::vec4 const &vec) {
+void PVG::GraphicsPipeline::SetClearColor(glm::vec4 const& vec) {
   this->clear_color = vec;
 }
 
-void PVG::GraphicsPipeline::SetDepth(float depth) { this->clear_depth = depth; }
+void PVG::GraphicsPipeline::SetDepth(float depth) {
+  this->clear_depth = depth;
+}
 
 void PVG::GraphicsPipeline::SetIndirectBuffer(std::weak_ptr<GpuBuffer> indirect,
-                                              size_t offset, size_t sz) {
+                                              size_t offset,
+                                              size_t sz) {
   this->indirectBuffer.buffer = indirect;
   this->indirectBuffer.offset = offset;
   this->indirectBuffer.sz = sz;
@@ -45,7 +51,8 @@ void PVG::GraphicsPipeline::SetIndirectBuffer(std::weak_ptr<GpuBuffer> indirect,
 }
 
 void PVG::GraphicsPipeline::SetIndexBuffer(std::weak_ptr<GpuBuffer> index,
-                                           size_t offset, size_t sz) {
+                                           size_t offset,
+                                           size_t sz) {
   this->indexBuffer.buffer = index;
   this->indexBuffer.offset = offset;
   this->indexBuffer.sz = sz;
@@ -59,7 +66,8 @@ void PVG::GraphicsPipeline::SetShaderProgram(
 
 void PVG::GraphicsPipeline::SetSSBO(int bindpoint,
                                     std::weak_ptr<GpuBuffer> buffer,
-                                    size_t offset, size_t sz) {
+                                    size_t offset,
+                                    size_t sz) {
   if (bindpoint >= GraphicsDevice::MAX_BINDPOINTS)
     throw std::invalid_argument("bindpoint out of range.");
   ssbos[bindpoint].buffer = buffer;
@@ -70,7 +78,8 @@ void PVG::GraphicsPipeline::SetSSBO(int bindpoint,
 
 void PVG::GraphicsPipeline::SetUBO(int bindpoint,
                                    std::weak_ptr<GpuBuffer> buffer,
-                                   size_t offset, size_t sz) {
+                                   size_t offset,
+                                   size_t sz) {
   if (bindpoint >= GraphicsDevice::MAX_BINDPOINTS)
     throw std::invalid_argument("bindpoint out of range.");
   ubos[bindpoint].buffer = buffer;

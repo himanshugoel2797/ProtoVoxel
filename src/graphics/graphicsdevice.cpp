@@ -1,6 +1,8 @@
 #include "graphicsdevice.h"
 #include "glad/glad.h"
 
+#include <stdexcept>
+
 namespace PVG = ProtoVoxel::Graphics;
 
 static std::shared_ptr<PVG::Framebuffer> boundFramebuffer;
@@ -13,17 +15,20 @@ static std::shared_ptr<PVG::GpuBuffer>
 static std::shared_ptr<PVG::GpuBuffer>
     boundUBOs[PVG::GraphicsDevice::MAX_BINDPOINTS];
 
-void PVG::GraphicsDevice::ClearColor() { glClear(GL_COLOR_BUFFER_BIT); }
+void PVG::GraphicsDevice::ClearColor() {
+  glClear(GL_COLOR_BUFFER_BIT);
+}
 
-void PVG::GraphicsDevice::ClearDepth() { glClear(GL_DEPTH_BUFFER_BIT); }
+void PVG::GraphicsDevice::ClearDepth() {
+  glClear(GL_DEPTH_BUFFER_BIT);
+}
 
 void PVG::GraphicsDevice::ClearAll() {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
 void PVG::GraphicsDevice::BindGraphicsPipeline(
-    PVG::GraphicsPipeline const &pipeline) {
-
+    PVG::GraphicsPipeline const& pipeline) {
   if (pipeline.fbuf.expired())
     throw std::invalid_argument("Framebuffer has expired.");
   if (pipeline.program.expired())
@@ -94,8 +99,7 @@ void PVG::GraphicsDevice::BindGraphicsPipeline(
 }
 
 void PVG::GraphicsDevice::BindComputePipeline(
-    PVG::ComputePipeline const &pipeline) {
-
+    PVG::ComputePipeline const& pipeline) {
   if (pipeline.program.expired())
     throw std::invalid_argument("Shader Program has expired.");
 

@@ -1,10 +1,11 @@
 #include "computepipeline.h"
 #include "graphicsdevice.h"
 
+#include <stdexcept>
+
 namespace PVG = ProtoVoxel::Graphics;
 
 PVG::ComputePipeline::ComputePipeline() {
-
   ssbos = new BufferBinding[GraphicsDevice::MAX_BINDPOINTS];
   ubos = new BufferBinding[GraphicsDevice::MAX_BINDPOINTS];
   textures = new TextureBinding[GraphicsDevice::MAX_BINDPOINTS];
@@ -22,7 +23,8 @@ PVG::ComputePipeline::~ComputePipeline() {
 }
 
 void PVG::ComputePipeline::SetIndirectBuffer(std::weak_ptr<GpuBuffer> indirect,
-                                             size_t offset, size_t sz) {
+                                             size_t offset,
+                                             size_t sz) {
   this->indirectBuffer.buffer = indirect;
   this->indirectBuffer.offset = offset;
   this->indirectBuffer.sz = sz;
@@ -36,7 +38,8 @@ void PVG::ComputePipeline::SetShaderProgram(
 
 void PVG::ComputePipeline::SetSSBO(int bindpoint,
                                    std::weak_ptr<GpuBuffer> buffer,
-                                   size_t offset, size_t sz) {
+                                   size_t offset,
+                                   size_t sz) {
   if (bindpoint >= GraphicsDevice::MAX_BINDPOINTS)
     throw std::invalid_argument("bindpoint out of range.");
   ssbos[bindpoint].buffer = buffer;
@@ -47,7 +50,8 @@ void PVG::ComputePipeline::SetSSBO(int bindpoint,
 
 void PVG::ComputePipeline::SetUBO(int bindpoint,
                                   std::weak_ptr<GpuBuffer> buffer,
-                                  size_t offset, size_t sz) {
+                                  size_t offset,
+                                  size_t sz) {
   if (bindpoint >= GraphicsDevice::MAX_BINDPOINTS)
     throw std::invalid_argument("bindpoint out of range.");
   ubos[bindpoint].buffer = buffer;

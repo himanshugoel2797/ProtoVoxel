@@ -1,20 +1,20 @@
 #pragma once
-#include "glad/glad.h"
 #include <stddef.h>
 #include <stdint.h>
+#include "glad/glad.h"
 
 namespace ProtoVoxel::Graphics {
 class GpuBuffer {
-private:
+ private:
   uint32_t id;
 
-public:
+ public:
   GpuBuffer();
   ~GpuBuffer();
 
   void SetStorage(size_t sz, GLbitfield flags);
-  void Update(size_t offset, size_t sz, const void *data);
+  void Update(size_t offset, size_t sz, const void* data);
   void Invalidate(size_t offset, size_t sz);
   uint32_t GetID() const { return id; }
 };
-} // namespace ProtoVoxel::Graphics
+}  // namespace ProtoVoxel::Graphics

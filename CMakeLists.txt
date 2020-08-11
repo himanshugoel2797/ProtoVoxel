@@ -6,21 +6,23 @@ include(CTest)
 enable_testing()
 
 find_package(OpenGL REQUIRED)
-find_package(glfw3 REQUIRED)
+
 
 add_library(glad ${CMAKE_SOURCE_DIR}/glad/glad.c)
 target_include_directories(glad PRIVATE ${CMAKE_SOURCE_DIR})
 
 file(GLOB_RECURSE IMGUI_SRC_FILES ${CMAKE_SOURCE_DIR}/imgui/*.cpp)
 add_library(imgui ${IMGUI_SRC_FILES})
-target_include_directories(imgui PRIVATE ${CMAKE_SOURCE_DIR}/imgui ${CMAKE_SOURCE_DIR})
+target_include_directories(imgui PRIVATE ${CMAKE_SOURCE_DIR}/imgui ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/glfw/include)
 
 file(GLOB_RECURSE SRC_FILES ${CMAKE_SOURCE_DIR}/src/*.cpp)
 add_executable(ProtoVoxel main.cpp ${SRC_FILES})
 set_property(TARGET ProtoVoxel PROPERTY CXX_STANDARD 17)
-target_link_libraries(ProtoVoxel glfw glad imgui OpenGL::GL ${CMAKE_DL_LIBS})
+
+target_link_directories(ProtoVoxel PRIVATE ${CMAKE_SOURCE_DIR}/glfw/lib-mingw-w64)
+target_link_libraries(ProtoVoxel glfw3 glad imgui OpenGL::GL ${CMAKE_DL_LIBS})
 target_compile_definitions(ProtoVoxel PRIVATE DEBUG)
-target_include_directories(ProtoVoxel PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR})
+target_include_directories(ProtoVoxel PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/glfw/include)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
