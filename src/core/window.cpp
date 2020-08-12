@@ -3,6 +3,7 @@
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_glfw.h"
 #include "imgui/imgui_impl_opengl3.h"
+#include "voxel/mortoncode.h"
 #include <stdio.h>
 
 namespace PVC = ProtoVoxel::Core;
