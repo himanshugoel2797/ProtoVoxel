@@ -6,7 +6,6 @@ namespace ProtoVoxel::Voxel
 {
     enum class ChunkCodingScheme
     {
-        None,       //3 bit mask + 1 bit translation table
         SingleFull, //Single block type for the entire chunk
         ByteRep,    //3 bit mask + 5 bit translation table
         ShortRep,   //3 bit mask + 13 bit translation table
