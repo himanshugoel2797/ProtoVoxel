@@ -3,44 +3,55 @@
 #include <random>
 #include <chrono>
 
-#include "voxel/mortoncode.h"
+#include "voxel/chunk.h"
 
 namespace PVC = ProtoVoxel::Core;
 namespace PVV = ProtoVoxel::Voxel;
 
-int main(int, char **) {
+int main(int, char **)
+{
     PVC::Window win(640, 480, "Test");
     win.InitGL();
 
-    double netTime = 0;
+    double avg_duration = 0;
+    int sample_cnt = 10000;
+    int iter_cnt = 30000;
 
-    int runs = 10000;
-    int iter_cnt = 100000;
-    uint8_t iter_table[iter_cnt][3];
-    uint32_t iter_Table_u[iter_cnt];
-    for (int iters = 0; iters < iter_cnt; iters++) {
-        iter_table[iters][0] = (uint8_t)rand();
-        iter_table[iters][1] = (uint8_t)rand();
-        iter_table[iters][2] = (uint8_t)rand();
+    auto x_v = new uint8_t[iter_cnt];
+    auto y_v = new uint8_t[iter_cnt];
+    auto z_v = new uint8_t[iter_cnt];
+    for (int i = 0; i < iter_cnt; i++)
+    {
+        uint8_t x = rand() % 30;
+        uint8_t y = rand() % 30;
+        uint8_t z = rand() % 30;
 
-        //iter_Table_u[iters] = PVV::MortonCode::Encode(iter_table[iters][0], iter_table[iters][1], iter_table[iters][2]);
+        x_v[i] = x + 1;
+        y_v[i] = y + 1;
+        z_v[i] = z + 1;
     }
 
-    for (int samples = 0; samples < runs; samples++) {
-        auto start = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+    for (int samples = 0; samples < sample_cnt; samples++)
+    {
+        PVV::Chunk chnk;
 
-        for (int iters = 0; iters < iter_cnt; iters++) {
-            auto res = PVV::MortonCode::Encode(iter_table[iters][0], iter_table[iters][1], iter_table[iters][2]);
-            iter_Table_u[iters] = res;
+        auto start_ns = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+        for (int i = 0; i < iter_cnt; i++)
+        {
+            uint8_t x = x_v[i];
+            uint8_t y = y_v[i];
+            uint8_t z = z_v[i];
+
+            chnk.SetSingle(x, y, z, 1);
         }
+        auto stop_ns = std::chrono::high_resolution_clock::now().time_since_epoch().count();
 
-        auto finish = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-
-        netTime += (finish - start) / 1000.0;
+        avg_duration += (stop_ns - start_ns) / 1000.0;
     }
-    std::cout << "Average Time: " << netTime / runs << "us" << std::endl;
+    std::cout << "Duration: " << avg_duration / sample_cnt << "us, Per Insert: " << avg_duration / (sample_cnt * iter_cnt) * 1000 << "ns" << std::endl;
 
-    while (!win.ShouldClose()) {
+    while (!win.ShouldClose())
+    {
         glClear(GL_COLOR_BUFFER_BIT);
         win.StartFrame();
         win.SwapBuffers();

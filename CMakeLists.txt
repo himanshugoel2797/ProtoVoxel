@@ -13,7 +13,7 @@ target_include_directories(imgui PRIVATE ${CMAKE_SOURCE_DIR}/imgui ${CMAKE_SOURC
 file(GLOB_RECURSE SRC_FILES ${CMAKE_SOURCE_DIR}/src/*.cpp)
 add_executable(ProtoVoxel main.cpp ${SRC_FILES})
 set_property(TARGET ProtoVoxel PROPERTY CXX_STANDARD 17)
-set_property(TARGET ProtoVoxel PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+#set_property(TARGET ProtoVoxel PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 
 target_link_directories(ProtoVoxel PRIVATE ${CMAKE_SOURCE_DIR}/glfw/lib-mingw-w64)
 target_link_libraries(ProtoVoxel glfw3 glad imgui OpenGL::GL ${CMAKE_DL_LIBS})
