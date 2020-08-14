@@ -65,8 +65,12 @@ namespace ProtoVoxel::Voxel
         ~Chunk();
 
         ChunkCodingScheme GetCodingScheme();
+
         void SetAll(uint16_t val);
         void SetSingle(uint8_t x, uint8_t y, uint8_t z, uint16_t val);
+
+        void SetSingleFast(uint8_t x, uint8_t y, uint8_t z, uint16_t val);
+        void UpdateMasks();
 
         int CompiledLen();
         void Compile(struct ProtoVoxel::Voxel::ChunkCoded *coded);

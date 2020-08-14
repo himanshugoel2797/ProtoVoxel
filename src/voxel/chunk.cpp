@@ -54,6 +54,7 @@ void PVV::Chunk::SetSingle(uint8_t x, uint8_t y, uint8_t z, uint16_t val)
     if (z == 0)
         idx_n[5] = ChunkLen;
 
+    uint32_t idx_n_n;
     switch (codingScheme)
     {
     case ChunkCodingScheme::ByteRep:
@@ -77,54 +78,58 @@ void PVV::Chunk::SetSingle(uint8_t x, uint8_t y, uint8_t z, uint16_t val)
 
                 set_voxel_cnt++;
 
-                uint32_t idx_n_n[6];
-
                 if (x < ChunkSide - 2 && vxl_u8[idx_n[0]] != 0)
                 {
-                    vxl_u8[idx_n[0]] &= 0xdf;
-                    idx_n_n[0] = MortonCode::Add(idx_n[0], MortonCode::OneX);
-                    if (vxl_u8[idx_n_n[0]] == 0)
+                    idx_n_n = MortonCode::Add(idx_n[0], MortonCode::OneX);
+                    if (vxl_u8[idx_n_n] == 0)
                         vxl_u8[idx_n[0]] |= (1 << 5);
+                    else
+                        vxl_u8[idx_n[0]] &= ~(1 << 5);
                 }
 
                 if (y < ChunkSide - 2 && vxl_u8[idx_n[3]] != 0)
                 {
-                    vxl_u8[idx_n[3]] &= 0xdf;
-                    idx_n_n[3] = MortonCode::Sub(idx_n[3], MortonCode::OneX);
-                    if (vxl_u8[idx_n_n[3]] == 0)
+                    idx_n_n = MortonCode::Sub(idx_n[3], MortonCode::OneX);
+                    if (vxl_u8[idx_n_n] == 0)
                         vxl_u8[idx_n[3]] |= (1 << 5);
+                    else
+                        vxl_u8[idx_n[3]] &= ~(1 << 5);
                 }
 
                 if (z < ChunkSide - 2 && vxl_u8[idx_n[1]] != 0)
                 {
-                    vxl_u8[idx_n[1]] &= 0xaf;
-                    idx_n_n[1] = MortonCode::Add(idx_n[1], MortonCode::OneY);
-                    if (vxl_u8[idx_n_n[1]] == 0)
+                    idx_n_n = MortonCode::Add(idx_n[1], MortonCode::OneY);
+                    if (vxl_u8[idx_n_n] == 0)
                         vxl_u8[idx_n[1]] |= (1 << 6);
+                    else
+                        vxl_u8[idx_n[1]] &= ~(1 << 6);
                 }
 
                 if (x >= 2 && vxl_u8[idx_n[4]] != 0)
                 {
-                    vxl_u8[idx_n[4]] &= 0xaf;
-                    idx_n_n[4] = MortonCode::Sub(idx_n[4], MortonCode::OneY);
-                    if (vxl_u8[idx_n_n[4]] == 0)
+                    idx_n_n = MortonCode::Sub(idx_n[4], MortonCode::OneY);
+                    if (vxl_u8[idx_n_n] == 0)
                         vxl_u8[idx_n[4]] |= (1 << 6);
+                    else
+                        vxl_u8[idx_n[4]] &= ~(1 << 6);
                 }
 
                 if (y >= 2 && vxl_u8[idx_n[2]] != 0)
                 {
-                    vxl_u8[idx_n[2]] &= 0x7f;
-                    idx_n_n[2] = MortonCode::Add(idx_n[2], MortonCode::OneZ);
-                    if (vxl_u8[idx_n_n[2]] == 0)
+                    idx_n_n = MortonCode::Add(idx_n[2], MortonCode::OneZ);
+                    if (vxl_u8[idx_n_n] == 0)
                         vxl_u8[idx_n[2]] |= (1 << 7);
+                    else
+                        vxl_u8[idx_n[2]] &= ~(1 << 7);
                 }
 
                 if (z >= 2 && vxl_u8[idx_n[5]] != 0)
                 {
-                    vxl_u8[idx_n[5]] &= 0x7f;
-                    idx_n_n[5] = MortonCode::Sub(idx_n[5], MortonCode::OneZ);
-                    if (vxl_u8[idx_n_n[5]] == 0)
+                    idx_n_n = MortonCode::Sub(idx_n[5], MortonCode::OneZ);
+                    if (vxl_u8[idx_n_n] == 0)
                         vxl_u8[idx_n[5]] |= (1 << 7);
+                    else
+                        vxl_u8[idx_n[5]] &= ~(1 << 7);
                 }
             }
         }
@@ -135,23 +140,12 @@ void PVV::Chunk::SetSingle(uint8_t x, uint8_t y, uint8_t z, uint16_t val)
         {
             set_voxel_cnt--;
 
-            if (vxl_u8[idx_n[0]] != 0)
-                vxl_u8[idx_n[0]] |= (1 << 5);
-
-            if (vxl_u8[idx_n[3]] != 0)
-                vxl_u8[idx_n[3]] |= (1 << 5);
-
-            if (vxl_u8[idx_n[1]] != 0)
-                vxl_u8[idx_n[1]] |= (1 << 6);
-
-            if (vxl_u8[idx_n[4]] != 0)
-                vxl_u8[idx_n[4]] |= (1 << 6);
-
-            if (vxl_u8[idx_n[2]] != 0)
-                vxl_u8[idx_n[2]] |= (1 << 7);
-
-            if (vxl_u8[idx_n[5]] != 0)
-                vxl_u8[idx_n[5]] |= (1 << 7);
+            vxl_u8[idx_n[0]] |= ((vxl_u8[idx_n[0]] != 0) << 5);
+            vxl_u8[idx_n[3]] |= ((vxl_u8[idx_n[3]] != 0) << 5);
+            vxl_u8[idx_n[1]] |= ((vxl_u8[idx_n[1]] != 0) << 6);
+            vxl_u8[idx_n[4]] |= ((vxl_u8[idx_n[4]] != 0) << 6);
+            vxl_u8[idx_n[2]] |= ((vxl_u8[idx_n[2]] != 0) << 7);
+            vxl_u8[idx_n[5]] |= ((vxl_u8[idx_n[5]] != 0) << 7);
         }
         break;
     }
@@ -159,7 +153,6 @@ void PVV::Chunk::SetSingle(uint8_t x, uint8_t y, uint8_t z, uint16_t val)
     {
         //TODO: Register value to palette, if the palette exceeds 32 entries, expand to ShortRep form
         //Figure out how to optimize the occupancy for gpu meshing, may just have to iterate and submit visible voxels
-        bool add_voxel = false;
         bool rm_voxel = (vxl_u16[idx] != 0 && val == 0);
 
         if (val != 0)
@@ -169,61 +162,65 @@ void PVV::Chunk::SetSingle(uint8_t x, uint8_t y, uint8_t z, uint16_t val)
             if (vxl_u16[idx] == 0) //Rebuild the mask if this voxel was previously invisible
             {
                 if ((vxl_u16[idx_n[0]] == 0) | (vxl_u16[idx_n[3]] == 0))
-                    val |= (1 << 5);
+                    val |= (1 << 13);
                 if ((vxl_u16[idx_n[1]] == 0) | (vxl_u16[idx_n[4]] == 0))
-                    val |= (1 << 6);
+                    val |= (1 << 14);
                 if ((vxl_u16[idx_n[2]] == 0) | (vxl_u16[idx_n[5]] == 0))
-                    val |= (1 << 7);
+                    val |= (1 << 15);
                 set_voxel_cnt++;
-
-                uint32_t idx_n_n[6];
 
                 if (x < ChunkSide - 2 && vxl_u16[idx_n[0]] != 0)
                 {
-                    vxl_u16[idx_n[0]] &= 0xdfff;
-                    idx_n_n[0] = MortonCode::Add(idx_n[0], MortonCode::OneX);
-                    if (vxl_u16[idx_n_n[0]] == 0)
+                    idx_n_n = MortonCode::Add(idx_n[0], MortonCode::OneX);
+                    if (vxl_u16[idx_n_n] == 0)
                         vxl_u16[idx_n[0]] |= (1 << 13);
+                    else
+                        vxl_u16[idx_n[0]] &= ~(1 << 13);
                 }
 
                 if (y < ChunkSide - 2 && vxl_u16[idx_n[3]] != 0)
                 {
-                    vxl_u16[idx_n[3]] &= 0xdfff;
-                    idx_n_n[3] = MortonCode::Sub(idx_n[3], MortonCode::OneX);
-                    if (vxl_u16[idx_n_n[3]] == 0)
+                    idx_n_n = MortonCode::Sub(idx_n[3], MortonCode::OneX);
+                    if (vxl_u16[idx_n_n] == 0)
                         vxl_u16[idx_n[3]] |= (1 << 13);
+                    else
+                        vxl_u16[idx_n[3]] &= ~(1 << 13);
                 }
 
                 if (z < ChunkSide - 2 && vxl_u16[idx_n[1]] != 0)
                 {
-                    vxl_u16[idx_n[1]] &= 0xafff;
-                    idx_n_n[1] = MortonCode::Add(idx_n[1], MortonCode::OneY);
-                    if (vxl_u16[idx_n_n[1]] == 0)
+                    idx_n_n = MortonCode::Add(idx_n[1], MortonCode::OneY);
+                    if (vxl_u16[idx_n_n] == 0)
                         vxl_u16[idx_n[1]] |= (1 << 14);
+                    else
+                        vxl_u16[idx_n[1]] &= ~(1 << 14);
                 }
 
                 if (x >= 2 && vxl_u16[idx_n[4]] != 0)
                 {
-                    vxl_u16[idx_n[4]] &= 0xafff;
-                    idx_n_n[4] = MortonCode::Sub(idx_n[4], MortonCode::OneY);
-                    if (vxl_u16[idx_n_n[4]] == 0)
+                    idx_n_n = MortonCode::Sub(idx_n[4], MortonCode::OneY);
+                    if (vxl_u16[idx_n_n] == 0)
                         vxl_u16[idx_n[4]] |= (1 << 14);
+                    else
+                        vxl_u16[idx_n[4]] &= ~(1 << 14);
                 }
 
                 if (y >= 2 && vxl_u16[idx_n[2]] != 0)
                 {
-                    vxl_u16[idx_n[2]] &= 0x7fff;
-                    idx_n_n[2] = MortonCode::Add(idx_n[2], MortonCode::OneZ);
-                    if (vxl_u16[idx_n_n[2]] == 0)
+                    idx_n_n = MortonCode::Add(idx_n[2], MortonCode::OneZ);
+                    if (vxl_u16[idx_n_n] == 0)
                         vxl_u16[idx_n[2]] |= (1 << 15);
+                    else
+                        vxl_u16[idx_n[2]] &= ~(1 << 15);
                 }
 
                 if (z >= 2 && vxl_u16[idx_n[5]] != 0)
                 {
-                    vxl_u16[idx_n[5]] &= 0x7fff;
-                    idx_n_n[5] = MortonCode::Sub(idx_n[5], MortonCode::OneZ);
-                    if (vxl_u16[idx_n_n[5]] == 0)
+                    idx_n_n = MortonCode::Sub(idx_n[5], MortonCode::OneZ);
+                    if (vxl_u16[idx_n_n] == 0)
                         vxl_u16[idx_n[5]] |= (1 << 15);
+                    else
+                        vxl_u16[idx_n[5]] &= ~(1 << 15);
                 }
             }
         }
@@ -234,23 +231,12 @@ void PVV::Chunk::SetSingle(uint8_t x, uint8_t y, uint8_t z, uint16_t val)
         {
             set_voxel_cnt--;
 
-            if (vxl_u8[idx_n[0]] != 0)
-                vxl_u16[idx_n[0]] |= (1 << 13);
-
-            if (vxl_u8[idx_n[3]] != 0)
-                vxl_u16[idx_n[3]] |= (1 << 13);
-
-            if (vxl_u8[idx_n[1]] != 0)
-                vxl_u16[idx_n[1]] |= (1 << 14);
-
-            if (vxl_u8[idx_n[4]] != 0)
-                vxl_u16[idx_n[4]] |= (1 << 14);
-
-            if (vxl_u8[idx_n[2]] != 0)
-                vxl_u16[idx_n[2]] |= (1 << 15);
-
-            if (vxl_u8[idx_n[5]] != 0)
-                vxl_u16[idx_n[5]] |= (1 << 15);
+            vxl_u16[idx_n[0]] |= ((vxl_u16[idx_n[0]] != 0) << 13);
+            vxl_u16[idx_n[3]] |= ((vxl_u16[idx_n[3]] != 0) << 13);
+            vxl_u16[idx_n[1]] |= ((vxl_u16[idx_n[1]] != 0) << 14);
+            vxl_u16[idx_n[4]] |= ((vxl_u16[idx_n[4]] != 0) << 14);
+            vxl_u16[idx_n[2]] |= ((vxl_u16[idx_n[2]] != 0) << 15);
+            vxl_u16[idx_n[5]] |= ((vxl_u16[idx_n[5]] != 0) << 15);
         }
         break;
     }
@@ -261,6 +247,235 @@ void PVV::Chunk::SetSingle(uint8_t x, uint8_t y, uint8_t z, uint16_t val)
             PVV::Chunk::SetSingle(x, y, z, val);
         }
         break;
+    }
+}
+
+void PVV::Chunk::SetSingleFast(uint8_t x, uint8_t y, uint8_t z, uint16_t val)
+{
+    uint32_t idx = MortonCode::Encode(x, y, z);
+    switch (codingScheme)
+    {
+    case ChunkCodingScheme::ByteRep:
+    {
+        bool add_voxel = (vxl_u8[idx] == 0 && val != 0);
+        bool rm_voxel = (vxl_u8[idx] != 0 && val == 0);
+        if (add_voxel)
+            set_voxel_cnt++;
+        if (rm_voxel)
+            set_voxel_cnt--;
+
+        vxl_u8[idx] = val;
+        break;
+    }
+    case ChunkCodingScheme::ShortRep:
+    {
+        bool add_voxel = (vxl_u16[idx] == 0 && val != 0);
+        bool rm_voxel = (vxl_u16[idx] != 0 && val == 0);
+        if (add_voxel)
+            set_voxel_cnt++;
+        if (rm_voxel)
+            set_voxel_cnt--;
+
+        vxl_u16[idx] = val;
+        break;
+    }
+    case ChunkCodingScheme::SingleFull:
+        if (val != allVal)
+        {
+            PVV::Chunk::Decompress();
+            PVV::Chunk::SetSingleFast(x, y, z, val);
+        }
+        break;
+    }
+}
+
+void PVV::Chunk::UpdateMasks()
+{
+    switch (codingScheme)
+    {
+    case ChunkCodingScheme::ByteRep:
+    {
+
+        for (int z = 1; z < ChunkSide - 1; z++)
+        {
+            uint32_t prev_y = vxl_u8[MortonCode::Encode(0, 0, z)];
+            for (int y = 1; y < ChunkSide - 1; y++)
+            {
+                uint32_t idx = MortonCode::Encode(0, y, z);
+                uint32_t idx_n[3];
+                idx_n[0] = MortonCode::Add(idx, MortonCode::OneY);
+                idx_n[1] = MortonCode::Add(idx, MortonCode::OneZ);
+                idx_n[2] = MortonCode::Sub(idx, MortonCode::OneZ);
+
+                auto val = vxl_u8[idx] & 0x1f;
+                if (val != 0)
+                {
+                    val |= (1 << 5);
+                    if ((vxl_u8[idx_n[0]] == 0) | (prev_y == 0))
+                        val |= (1 << 6);
+                    if ((vxl_u8[idx_n[1]] == 0) | (vxl_u8[idx_n[2]] == 0))
+                        val |= (1 << 7);
+                    vxl_u8[idx] = val;
+                }
+                prev_y = val;
+            }
+        }
+        for (int z = 1; z < ChunkSide - 1; z++)
+        {
+            uint32_t prev_y = vxl_u8[MortonCode::Encode(ChunkSide - 1, 0, z)];
+            for (int y = 1; y < ChunkSide - 1; y++)
+            {
+                uint32_t idx = MortonCode::Encode(ChunkSide - 1, y, z);
+                uint32_t idx_n[3];
+                idx_n[0] = MortonCode::Add(idx, MortonCode::OneY);
+                idx_n[1] = MortonCode::Add(idx, MortonCode::OneZ);
+                idx_n[2] = MortonCode::Sub(idx, MortonCode::OneZ);
+
+                auto val = vxl_u8[idx] & 0x1f;
+                if (val != 0)
+                {
+                    val |= (1 << 5);
+                    if ((vxl_u8[idx_n[0]] == 0) | (prev_y == 0))
+                        val |= (1 << 6);
+                    if ((vxl_u8[idx_n[1]] == 0) | (vxl_u8[idx_n[2]] == 0))
+                        val |= (1 << 7);
+                    vxl_u8[idx] = val;
+                }
+                prev_y = val;
+            }
+        }
+        for (int z = 1; z < ChunkSide - 1; z++)
+        {
+            uint32_t prev_y = vxl_u8[MortonCode::Encode(0, 0, z)];
+            for (int y = 1; y < ChunkSide - 1; y++)
+            {
+                uint32_t idx = MortonCode::Encode(y, 0, z);
+                uint32_t idx_n[3];
+                idx_n[0] = MortonCode::Add(idx, MortonCode::OneX);
+                idx_n[1] = MortonCode::Add(idx, MortonCode::OneZ);
+                idx_n[3] = MortonCode::Sub(idx, MortonCode::OneZ);
+
+                auto val = vxl_u8[idx] & 0x1f;
+                if (val != 0)
+                {
+                    val |= (1 << 6);
+                    if ((vxl_u8[idx_n[0]] == 0) | (prev_y == 0))
+                        val |= (1 << 5);
+                    if ((vxl_u8[idx_n[1]] == 0) | (vxl_u8[idx_n[2]] == 0))
+                        val |= (1 << 7);
+                    vxl_u8[idx] = val;
+                }
+                prev_y = val;
+            }
+        }
+        for (int z = 1; z < ChunkSide - 1; z++)
+        {
+            uint32_t prev_y = vxl_u8[MortonCode::Encode(0, ChunkSide - 1, z)];
+            for (int y = 1; y < ChunkSide - 1; y++)
+            {
+                uint32_t idx = MortonCode::Encode(y, ChunkSide - 1, z);
+                uint32_t idx_n[3];
+                idx_n[0] = MortonCode::Add(idx, MortonCode::OneX);
+                idx_n[1] = MortonCode::Add(idx, MortonCode::OneZ);
+                idx_n[2] = MortonCode::Sub(idx, MortonCode::OneZ);
+
+                auto val = vxl_u8[idx] & 0x1f;
+                if (val != 0)
+                {
+                    val |= (1 << 6);
+                    if ((vxl_u8[idx_n[0]] == 0) | (prev_y == 0))
+                        val |= (1 << 5);
+                    if ((vxl_u8[idx_n[1]] == 0) | (vxl_u8[idx_n[2]] == 0))
+                        val |= (1 << 7);
+                    vxl_u8[idx] = val;
+                }
+                prev_y = val;
+            }
+        }
+        for (int z = 1; z < ChunkSide - 1; z++)
+        {
+            uint32_t prev_y = vxl_u8[MortonCode::Encode(0, z, 0)];
+            for (int y = 1; y < ChunkSide - 1; y++)
+            {
+                uint32_t idx = MortonCode::Encode(y, z, 0);
+                uint32_t idx_n[3];
+                idx_n[0] = MortonCode::Add(idx, MortonCode::OneX);
+                idx_n[1] = MortonCode::Add(idx, MortonCode::OneY);
+                idx_n[2] = MortonCode::Sub(idx, MortonCode::OneY);
+
+                auto val = vxl_u8[idx] & 0x1f;
+                if (val != 0)
+                {
+                    val |= (1 << 7);
+                    if ((vxl_u8[idx_n[0]] == 0) | (prev_y == 0))
+                        val |= (1 << 5);
+                    if ((vxl_u8[idx_n[1]] == 0) | (vxl_u8[idx_n[2]] == 0))
+                        val |= (1 << 6);
+                    vxl_u8[idx] = val;
+                }
+                prev_y = val;
+            }
+        }
+        for (int z = 1; z < ChunkSide - 1; z++)
+        {
+            uint32_t prev_y = vxl_u8[MortonCode::Encode(0, z, ChunkSide - 1)];
+            for (int y = 1; y < ChunkSide - 1; y++)
+            {
+                uint32_t idx = MortonCode::Encode(y, z, ChunkSide - 1);
+                uint32_t idx_n[3];
+                idx_n[0] = MortonCode::Add(idx, MortonCode::OneX);
+                idx_n[1] = MortonCode::Add(idx, MortonCode::OneY);
+                idx_n[2] = MortonCode::Sub(idx, MortonCode::OneY);
+
+                auto val = vxl_u8[idx] & 0x1f;
+                if (val != 0)
+                {
+                    val |= (1 << 7);
+                    if ((vxl_u8[idx_n[0]] == 0) | (prev_y == 0))
+                        val |= (1 << 5);
+                    if ((vxl_u8[idx_n[1]] == 0) | (vxl_u8[idx_n[2]] == 0))
+                        val |= (1 << 6);
+                    vxl_u8[idx] = val;
+                }
+                prev_y = val;
+            }
+        }
+
+        for (int z = 1; z < ChunkSide - 1; z++)
+            for (int y = 1; y < ChunkSide - 1; y++)
+            {
+                uint32_t prev_x = vxl_u8[MortonCode::Encode(0, y, z)];
+                for (int x = 1; x < ChunkSide - 1; x++)
+                {
+                    uint32_t idx = MortonCode::Encode(x, y, z);
+
+                    uint32_t idx_n[5];
+                    idx_n[0] = MortonCode::Add(idx, MortonCode::OneX);
+                    idx_n[1] = MortonCode::Add(idx, MortonCode::OneY);
+                    idx_n[2] = MortonCode::Add(idx, MortonCode::OneZ);
+                    idx_n[3] = MortonCode::Sub(idx, MortonCode::OneY);
+                    idx_n[4] = MortonCode::Sub(idx, MortonCode::OneZ);
+
+                    auto val = vxl_u8[idx] & 0x1f;
+                    if (val != 0)
+                    {
+                        if ((vxl_u8[idx_n[0]] == 0) | (prev_x == 0))
+                            val |= (1 << 5);
+                        if ((vxl_u8[idx_n[1]] == 0) | (vxl_u8[idx_n[3]] == 0))
+                            val |= (1 << 6);
+                        if ((vxl_u8[idx_n[2]] == 0) | (vxl_u8[idx_n[4]] == 0))
+                            val |= (1 << 7);
+                        vxl_u8[idx] = val;
+                    }
+                    prev_x = val;
+                }
+            }
+    }
+    break;
+    case ChunkCodingScheme::ShortRep:
+    {
+    }
+    break;
     }
 }
 
