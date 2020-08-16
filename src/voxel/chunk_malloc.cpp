@@ -33,7 +33,6 @@ void PVV::ChunkMalloc::Initialize()
 
 uint8_t *PVV::ChunkMalloc::AllocChunkBlock()
 {
-    return new uint8_t[Chunk::ChunkLen];
     if (block_presence_bmp.size() == 0)
     {
         return nullptr;
@@ -46,8 +45,6 @@ uint8_t *PVV::ChunkMalloc::AllocChunkBlock()
 
 void PVV::ChunkMalloc::FreeChunkBlock(uint8_t *block)
 {
-    delete[] block;
-    return;
     VirtualFree(block, Chunk::ChunkLen, MEM_DECOMMIT);
     block_presence_bmp.push((uint32_t)((block - data_base) / Chunk::ChunkLen));
 }

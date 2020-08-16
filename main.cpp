@@ -39,7 +39,7 @@ int main(int, char **)
     }
 
     PVV::ChunkMalloc chnk_malloc;
-    //chnk_malloc.Initialize();
+    chnk_malloc.Initialize();
 
     auto x_v = (uint8_t *)x_v_2;
     for (int samples = 0; samples < sample_cnt; samples++)

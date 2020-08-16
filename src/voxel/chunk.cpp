@@ -362,7 +362,7 @@ PVV::ChunkCodingScheme PVV::Chunk::GetCodingScheme()
 PVV::Chunk::~Chunk()
 {
     if (vxl_u8 != nullptr)
-        delete[] vxl_u8;
+        mem_parent->FreeChunkBlock(vxl_u8);
 
     if (vismasks != nullptr)
         delete[] vismasks;
