@@ -1,13 +1,15 @@
 #include "chunk.h"
 #include "mortoncode.h"
 #include <string.h>
-#include <vector>
+//#include <x86intrin.h>
 
 namespace PVV = ProtoVoxel::Voxel;
 
-PVV::Chunk::Chunk()
+PVV::Chunk::Chunk(ChunkMalloc *mem_parent)
 {
+    this->mem_parent = mem_parent;
     vxl_u8 = nullptr;
+    vismasks = nullptr;
     codingScheme = ChunkCodingScheme::SingleFull;
     allVal = 0;
     set_voxel_cnt = 0;
@@ -26,218 +28,43 @@ void PVV::Chunk::SetAll(uint16_t val)
     {
         delete[] vxl_u8;
         vxl_u8 = nullptr;
+
+        delete[] vismasks;
+        vismasks = nullptr;
     }
 }
 
 void PVV::Chunk::SetSingle(uint8_t x, uint8_t y, uint8_t z, uint16_t val)
 {
-    uint32_t idx = MortonCode::Encode(x, y, z);
-
-    uint32_t idx_n[6];
-    idx_n[0] = MortonCode::Add(idx, MortonCode::OneX);
-    idx_n[1] = MortonCode::Add(idx, MortonCode::OneY);
-    idx_n[2] = MortonCode::Add(idx, MortonCode::OneZ);
-    idx_n[3] = MortonCode::Sub(idx, MortonCode::OneX);
-    idx_n[4] = MortonCode::Sub(idx, MortonCode::OneY);
-    idx_n[5] = MortonCode::Sub(idx, MortonCode::OneZ);
-
-    if (x == ChunkSide - 1)
-        idx_n[0] = ChunkLen;
-    if (y == ChunkSide - 1)
-        idx_n[1] = ChunkLen;
-    if (z == ChunkSide - 1)
-        idx_n[2] = ChunkLen;
-    if (x == 0)
-        idx_n[3] = ChunkLen;
-    if (y == 0)
-        idx_n[4] = ChunkLen;
-    if (z == 0)
-        idx_n[5] = ChunkLen;
-
-    uint32_t idx_n_n;
     switch (codingScheme)
     {
     case ChunkCodingScheme::ByteRep:
     {
-        //TODO: Register value to palette, if the palette exceeds 32 entries, expand to ShortRep form
-        //Figure out how to optimize the occupancy for gpu meshing, may just have to iterate and submit visible voxels
-        bool rm_voxel = (vxl_u8[idx] != 0 && val == 0);
+        uint32_t b_idx = EncodeXZ(x, z);
+        auto vmask = vismasks[b_idx];
+        auto mask = (1 << y);
+        auto region = x / RegionLayerCount;
 
-        if (val != 0)
+        bool add_voxel = ((vmask & mask) == 0 && val != 0);
+        bool rm_voxel = ((vmask & mask) != 0 && val == 0);
+        vismasks[b_idx] = (vmask & ~mask) | (-(val != 0) & mask); //Set the visibility bit appropriately
+        if (add_voxel)
         {
-            //Copy over the mask if it's a new voxel
-            val = (vxl_u8[idx] & 0xe0) | val;
-            if (vxl_u8[idx] == 0) //Rebuild the mask if this voxel was previously invisible
-            {
-                if ((vxl_u8[idx_n[0]] == 0) | (vxl_u8[idx_n[3]] == 0))
-                    val |= (1 << 5);
-                if ((vxl_u8[idx_n[1]] == 0) | (vxl_u8[idx_n[4]] == 0))
-                    val |= (1 << 6);
-                if ((vxl_u8[idx_n[2]] == 0) | (vxl_u8[idx_n[5]] == 0))
-                    val |= (1 << 7);
-
-                set_voxel_cnt++;
-
-                if (x < ChunkSide - 2 && vxl_u8[idx_n[0]] != 0)
-                {
-                    idx_n_n = MortonCode::Add(idx_n[0], MortonCode::OneX);
-                    if (vxl_u8[idx_n_n] == 0)
-                        vxl_u8[idx_n[0]] |= (1 << 5);
-                    else
-                        vxl_u8[idx_n[0]] &= ~(1 << 5);
-                }
-
-                if (y < ChunkSide - 2 && vxl_u8[idx_n[3]] != 0)
-                {
-                    idx_n_n = MortonCode::Sub(idx_n[3], MortonCode::OneX);
-                    if (vxl_u8[idx_n_n] == 0)
-                        vxl_u8[idx_n[3]] |= (1 << 5);
-                    else
-                        vxl_u8[idx_n[3]] &= ~(1 << 5);
-                }
-
-                if (z < ChunkSide - 2 && vxl_u8[idx_n[1]] != 0)
-                {
-                    idx_n_n = MortonCode::Add(idx_n[1], MortonCode::OneY);
-                    if (vxl_u8[idx_n_n] == 0)
-                        vxl_u8[idx_n[1]] |= (1 << 6);
-                    else
-                        vxl_u8[idx_n[1]] &= ~(1 << 6);
-                }
-
-                if (x >= 2 && vxl_u8[idx_n[4]] != 0)
-                {
-                    idx_n_n = MortonCode::Sub(idx_n[4], MortonCode::OneY);
-                    if (vxl_u8[idx_n_n] == 0)
-                        vxl_u8[idx_n[4]] |= (1 << 6);
-                    else
-                        vxl_u8[idx_n[4]] &= ~(1 << 6);
-                }
-
-                if (y >= 2 && vxl_u8[idx_n[2]] != 0)
-                {
-                    idx_n_n = MortonCode::Add(idx_n[2], MortonCode::OneZ);
-                    if (vxl_u8[idx_n_n] == 0)
-                        vxl_u8[idx_n[2]] |= (1 << 7);
-                    else
-                        vxl_u8[idx_n[2]] &= ~(1 << 7);
-                }
-
-                if (z >= 2 && vxl_u8[idx_n[5]] != 0)
-                {
-                    idx_n_n = MortonCode::Sub(idx_n[5], MortonCode::OneZ);
-                    if (vxl_u8[idx_n_n] == 0)
-                        vxl_u8[idx_n[5]] |= (1 << 7);
-                    else
-                        vxl_u8[idx_n[5]] &= ~(1 << 7);
-                }
-            }
+            if (regional_voxel_cnt[region] == 0)
+                mem_parent->CommitChunkRegion(vxl_u8, region);
+            regional_voxel_cnt[region]++;
+            set_voxel_cnt++;
         }
+        uint32_t idx = EncodeXZ_Y(b_idx, y);
         vxl_u8[idx] = val;
-
-        //Recompute the mask for the neighbors
         if (rm_voxel)
         {
+            regional_voxel_cnt[region]--;
+            if (regional_voxel_cnt[region] == 0)
+                mem_parent->DecommitChunkBlock(vxl_u8, region);
             set_voxel_cnt--;
-
-            vxl_u8[idx_n[0]] |= ((vxl_u8[idx_n[0]] != 0) << 5);
-            vxl_u8[idx_n[3]] |= ((vxl_u8[idx_n[3]] != 0) << 5);
-            vxl_u8[idx_n[1]] |= ((vxl_u8[idx_n[1]] != 0) << 6);
-            vxl_u8[idx_n[4]] |= ((vxl_u8[idx_n[4]] != 0) << 6);
-            vxl_u8[idx_n[2]] |= ((vxl_u8[idx_n[2]] != 0) << 7);
-            vxl_u8[idx_n[5]] |= ((vxl_u8[idx_n[5]] != 0) << 7);
         }
-        break;
-    }
-    case ChunkCodingScheme::ShortRep:
-    {
-        //TODO: Register value to palette, if the palette exceeds 32 entries, expand to ShortRep form
-        //Figure out how to optimize the occupancy for gpu meshing, may just have to iterate and submit visible voxels
-        bool rm_voxel = (vxl_u16[idx] != 0 && val == 0);
 
-        if (val != 0)
-        {
-            //Copy over the mask if it's a new voxel
-            val = (vxl_u16[idx] & 0xe000) | val;
-            if (vxl_u16[idx] == 0) //Rebuild the mask if this voxel was previously invisible
-            {
-                if ((vxl_u16[idx_n[0]] == 0) | (vxl_u16[idx_n[3]] == 0))
-                    val |= (1 << 13);
-                if ((vxl_u16[idx_n[1]] == 0) | (vxl_u16[idx_n[4]] == 0))
-                    val |= (1 << 14);
-                if ((vxl_u16[idx_n[2]] == 0) | (vxl_u16[idx_n[5]] == 0))
-                    val |= (1 << 15);
-                set_voxel_cnt++;
-
-                if (x < ChunkSide - 2 && vxl_u16[idx_n[0]] != 0)
-                {
-                    idx_n_n = MortonCode::Add(idx_n[0], MortonCode::OneX);
-                    if (vxl_u16[idx_n_n] == 0)
-                        vxl_u16[idx_n[0]] |= (1 << 13);
-                    else
-                        vxl_u16[idx_n[0]] &= ~(1 << 13);
-                }
-
-                if (y < ChunkSide - 2 && vxl_u16[idx_n[3]] != 0)
-                {
-                    idx_n_n = MortonCode::Sub(idx_n[3], MortonCode::OneX);
-                    if (vxl_u16[idx_n_n] == 0)
-                        vxl_u16[idx_n[3]] |= (1 << 13);
-                    else
-                        vxl_u16[idx_n[3]] &= ~(1 << 13);
-                }
-
-                if (z < ChunkSide - 2 && vxl_u16[idx_n[1]] != 0)
-                {
-                    idx_n_n = MortonCode::Add(idx_n[1], MortonCode::OneY);
-                    if (vxl_u16[idx_n_n] == 0)
-                        vxl_u16[idx_n[1]] |= (1 << 14);
-                    else
-                        vxl_u16[idx_n[1]] &= ~(1 << 14);
-                }
-
-                if (x >= 2 && vxl_u16[idx_n[4]] != 0)
-                {
-                    idx_n_n = MortonCode::Sub(idx_n[4], MortonCode::OneY);
-                    if (vxl_u16[idx_n_n] == 0)
-                        vxl_u16[idx_n[4]] |= (1 << 14);
-                    else
-                        vxl_u16[idx_n[4]] &= ~(1 << 14);
-                }
-
-                if (y >= 2 && vxl_u16[idx_n[2]] != 0)
-                {
-                    idx_n_n = MortonCode::Add(idx_n[2], MortonCode::OneZ);
-                    if (vxl_u16[idx_n_n] == 0)
-                        vxl_u16[idx_n[2]] |= (1 << 15);
-                    else
-                        vxl_u16[idx_n[2]] &= ~(1 << 15);
-                }
-
-                if (z >= 2 && vxl_u16[idx_n[5]] != 0)
-                {
-                    idx_n_n = MortonCode::Sub(idx_n[5], MortonCode::OneZ);
-                    if (vxl_u16[idx_n_n] == 0)
-                        vxl_u16[idx_n[5]] |= (1 << 15);
-                    else
-                        vxl_u16[idx_n[5]] &= ~(1 << 15);
-                }
-            }
-        }
-        vxl_u16[idx] = val;
-
-        //Recompute the mask for the neighbors
-        if (rm_voxel)
-        {
-            set_voxel_cnt--;
-
-            vxl_u16[idx_n[0]] |= ((vxl_u16[idx_n[0]] != 0) << 13);
-            vxl_u16[idx_n[3]] |= ((vxl_u16[idx_n[3]] != 0) << 13);
-            vxl_u16[idx_n[1]] |= ((vxl_u16[idx_n[1]] != 0) << 14);
-            vxl_u16[idx_n[4]] |= ((vxl_u16[idx_n[4]] != 0) << 14);
-            vxl_u16[idx_n[2]] |= ((vxl_u16[idx_n[2]] != 0) << 15);
-            vxl_u16[idx_n[5]] |= ((vxl_u16[idx_n[5]] != 0) << 15);
-        }
         break;
     }
     case ChunkCodingScheme::SingleFull:
@@ -250,337 +77,243 @@ void PVV::Chunk::SetSingle(uint8_t x, uint8_t y, uint8_t z, uint16_t val)
     }
 }
 
-void PVV::Chunk::SetSingleFast(uint8_t x, uint8_t y, uint8_t z, uint16_t val)
+const uint32_t backFace = 0;
+const uint32_t frontFace = 1 << 29;
+const uint32_t topFace = 2 << 29;
+const uint32_t btmFace = 3 << 29;
+const uint32_t leftFace = 4 << 29;
+const uint32_t rightFace = 5 << 29;
+
+static inline uint32_t *buildFace(uint32_t *inds, uint32_t xz, uint32_t y, uint8_t *vxl_data, uint32_t face)
 {
-    uint32_t idx = MortonCode::Encode(x, y, z);
-    switch (codingScheme)
-    {
-    case ChunkCodingScheme::ByteRep:
-    {
-        bool add_voxel = (vxl_u8[idx] == 0 && val != 0);
-        bool rm_voxel = (vxl_u8[idx] != 0 && val == 0);
-        if (add_voxel)
-            set_voxel_cnt++;
-        if (rm_voxel)
-            set_voxel_cnt--;
+    auto xyz = xz | y;
+    auto mat = vxl_data[xyz];
 
-        vxl_u8[idx] = val;
-        break;
-    }
-    case ChunkCodingScheme::ShortRep:
-    {
-        bool add_voxel = (vxl_u16[idx] == 0 && val != 0);
-        bool rm_voxel = (vxl_u16[idx] != 0 && val == 0);
-        if (add_voxel)
-            set_voxel_cnt++;
-        if (rm_voxel)
-            set_voxel_cnt--;
+    uint32_t x_axis;
+    uint32_t y_axis;
+    uint32_t cmn_axis;
 
-        vxl_u16[idx] = val;
+    switch (face)
+    {
+    case backFace:
+        cmn_axis = (1 << 19) | face;
+        x_axis = (1 << 24) | cmn_axis; //x
+        y_axis = (1 << 14) | cmn_axis; //y
+        break;
+    case frontFace:
+        cmn_axis = 0 | face;
+        x_axis = (1 << 24) | cmn_axis; //x
+        y_axis = (1 << 14) | cmn_axis; //y
+        break;
+    case topFace:
+        cmn_axis = (1 << 14) | face;   //y
+        x_axis = (1 << 24) | cmn_axis; //x
+        y_axis = (1 << 19) | cmn_axis; //z
+        break;
+    case btmFace:
+        cmn_axis = 0 | face;
+        x_axis = (1 << 24) | cmn_axis; //x
+        y_axis = (1 << 19) | cmn_axis; //z
+        break;
+    case leftFace:
+        cmn_axis = (1 << 24) | face;   //x
+        x_axis = (1 << 14) | cmn_axis; //y
+        y_axis = (1 << 19) | cmn_axis; //z
+        break;
+    case rightFace:
+        cmn_axis = 0 | face;
+        x_axis = (1 << 14) | cmn_axis; //y
+        y_axis = (1 << 19) | cmn_axis; //z
         break;
     }
-    case ChunkCodingScheme::SingleFull:
-        if (val != allVal)
-        {
-            PVV::Chunk::Decompress();
-            PVV::Chunk::SetSingleFast(x, y, z, val);
-        }
-        break;
-    }
+
+    auto base_v = ((xyz << 14) | mat);
+    auto base_v_x = base_v + x_axis;
+    auto base_v_y = base_v + y_axis;
+    inds[3] = inds[0] = base_v + cmn_axis;
+    inds[1] = base_v_x;
+    inds[5] = base_v_y;
+    inds[4] = inds[2] = base_v_x | base_v_y;
+    return inds + 6;
 }
 
-void PVV::Chunk::UpdateMasks()
+#if 1
+#include <x86intrin.h>
+#define _andn_u32(a, b, ovar) ovar = __andn_u32(a, b)
+
+#define _blsr_u32(a, ovar) ovar = __blsr_u32(a);
+
+#define _tzcnt_u32(ax, ovar) ovar = __tzcnt_u32(ax);
+#endif
+
+void PVV::Chunk::Compile(uint32_t *inds_p)
 {
     switch (codingScheme)
     {
     case ChunkCodingScheme::ByteRep:
     {
+        auto visMask = vismasks;
+        auto cur_col_p = visMask + ChunkSide;
+        auto inds_orig = inds_p;
 
-        for (int z = 1; z < ChunkSide - 1; z++)
+        for (uint32_t x = 1 << 10; x < (ChunkSide - 1) << 10; x += 1 << 10)
         {
-            uint32_t prev_y = vxl_u8[MortonCode::Encode(0, 0, z)];
-            for (int y = 1; y < ChunkSide - 1; y++)
-            {
-                uint32_t idx = MortonCode::Encode(0, y, z);
-                uint32_t idx_n[3];
-                idx_n[0] = MortonCode::Add(idx, MortonCode::OneY);
-                idx_n[1] = MortonCode::Add(idx, MortonCode::OneZ);
-                idx_n[2] = MortonCode::Sub(idx, MortonCode::OneZ);
+            auto left_col = *cur_col_p++;
+            auto cur_col = *cur_col_p++;
+            auto cur_col_orig = cur_col;
+            auto region = x / RegionSize;
 
-                auto val = vxl_u8[idx] & 0x1f;
-                if (val != 0)
+            if (regional_voxel_cnt[region] > 0)
+                for (uint32_t z = 1 << 5; z < (ChunkSide - 1) << 5; z += 1 << 5)
                 {
-                    val |= (1 << 5);
-                    if ((vxl_u8[idx_n[0]] == 0) | (prev_y == 0))
-                        val |= (1 << 6);
-                    if ((vxl_u8[idx_n[1]] == 0) | (vxl_u8[idx_n[2]] == 0))
-                        val |= (1 << 7);
-                    vxl_u8[idx] = val;
-                }
-                prev_y = val;
-            }
-        }
-        for (int z = 1; z < ChunkSide - 1; z++)
-        {
-            uint32_t prev_y = vxl_u8[MortonCode::Encode(ChunkSide - 1, 0, z)];
-            for (int y = 1; y < ChunkSide - 1; y++)
-            {
-                uint32_t idx = MortonCode::Encode(ChunkSide - 1, y, z);
-                uint32_t idx_n[3];
-                idx_n[0] = MortonCode::Add(idx, MortonCode::OneY);
-                idx_n[1] = MortonCode::Add(idx, MortonCode::OneZ);
-                idx_n[2] = MortonCode::Sub(idx, MortonCode::OneZ);
+                    auto right_col = *cur_col_p++;
 
-                auto val = vxl_u8[idx] & 0x1f;
-                if (val != 0)
-                {
-                    val |= (1 << 5);
-                    if ((vxl_u8[idx_n[0]] == 0) | (prev_y == 0))
-                        val |= (1 << 6);
-                    if ((vxl_u8[idx_n[1]] == 0) | (vxl_u8[idx_n[2]] == 0))
-                        val |= (1 << 7);
-                    vxl_u8[idx] = val;
-                }
-                prev_y = val;
-            }
-        }
-        for (int z = 1; z < ChunkSide - 1; z++)
-        {
-            uint32_t prev_y = vxl_u8[MortonCode::Encode(0, 0, z)];
-            for (int y = 1; y < ChunkSide - 1; y++)
-            {
-                uint32_t idx = MortonCode::Encode(y, 0, z);
-                uint32_t idx_n[3];
-                idx_n[0] = MortonCode::Add(idx, MortonCode::OneX);
-                idx_n[1] = MortonCode::Add(idx, MortonCode::OneZ);
-                idx_n[3] = MortonCode::Sub(idx, MortonCode::OneZ);
-
-                auto val = vxl_u8[idx] & 0x1f;
-                if (val != 0)
-                {
-                    val |= (1 << 6);
-                    if ((vxl_u8[idx_n[0]] == 0) | (prev_y == 0))
-                        val |= (1 << 5);
-                    if ((vxl_u8[idx_n[1]] == 0) | (vxl_u8[idx_n[2]] == 0))
-                        val |= (1 << 7);
-                    vxl_u8[idx] = val;
-                }
-                prev_y = val;
-            }
-        }
-        for (int z = 1; z < ChunkSide - 1; z++)
-        {
-            uint32_t prev_y = vxl_u8[MortonCode::Encode(0, ChunkSide - 1, z)];
-            for (int y = 1; y < ChunkSide - 1; y++)
-            {
-                uint32_t idx = MortonCode::Encode(y, ChunkSide - 1, z);
-                uint32_t idx_n[3];
-                idx_n[0] = MortonCode::Add(idx, MortonCode::OneX);
-                idx_n[1] = MortonCode::Add(idx, MortonCode::OneZ);
-                idx_n[2] = MortonCode::Sub(idx, MortonCode::OneZ);
-
-                auto val = vxl_u8[idx] & 0x1f;
-                if (val != 0)
-                {
-                    val |= (1 << 6);
-                    if ((vxl_u8[idx_n[0]] == 0) | (prev_y == 0))
-                        val |= (1 << 5);
-                    if ((vxl_u8[idx_n[1]] == 0) | (vxl_u8[idx_n[2]] == 0))
-                        val |= (1 << 7);
-                    vxl_u8[idx] = val;
-                }
-                prev_y = val;
-            }
-        }
-        for (int z = 1; z < ChunkSide - 1; z++)
-        {
-            uint32_t prev_y = vxl_u8[MortonCode::Encode(0, z, 0)];
-            for (int y = 1; y < ChunkSide - 1; y++)
-            {
-                uint32_t idx = MortonCode::Encode(y, z, 0);
-                uint32_t idx_n[3];
-                idx_n[0] = MortonCode::Add(idx, MortonCode::OneX);
-                idx_n[1] = MortonCode::Add(idx, MortonCode::OneY);
-                idx_n[2] = MortonCode::Sub(idx, MortonCode::OneY);
-
-                auto val = vxl_u8[idx] & 0x1f;
-                if (val != 0)
-                {
-                    val |= (1 << 7);
-                    if ((vxl_u8[idx_n[0]] == 0) | (prev_y == 0))
-                        val |= (1 << 5);
-                    if ((vxl_u8[idx_n[1]] == 0) | (vxl_u8[idx_n[2]] == 0))
-                        val |= (1 << 6);
-                    vxl_u8[idx] = val;
-                }
-                prev_y = val;
-            }
-        }
-        for (int z = 1; z < ChunkSide - 1; z++)
-        {
-            uint32_t prev_y = vxl_u8[MortonCode::Encode(0, z, ChunkSide - 1)];
-            for (int y = 1; y < ChunkSide - 1; y++)
-            {
-                uint32_t idx = MortonCode::Encode(y, z, ChunkSide - 1);
-                uint32_t idx_n[3];
-                idx_n[0] = MortonCode::Add(idx, MortonCode::OneX);
-                idx_n[1] = MortonCode::Add(idx, MortonCode::OneY);
-                idx_n[2] = MortonCode::Sub(idx, MortonCode::OneY);
-
-                auto val = vxl_u8[idx] & 0x1f;
-                if (val != 0)
-                {
-                    val |= (1 << 7);
-                    if ((vxl_u8[idx_n[0]] == 0) | (prev_y == 0))
-                        val |= (1 << 5);
-                    if ((vxl_u8[idx_n[1]] == 0) | (vxl_u8[idx_n[2]] == 0))
-                        val |= (1 << 6);
-                    vxl_u8[idx] = val;
-                }
-                prev_y = val;
-            }
-        }
-
-        for (int z = 1; z < ChunkSide - 1; z++)
-            for (int y = 1; y < ChunkSide - 1; y++)
-            {
-                uint32_t prev_x = vxl_u8[MortonCode::Encode(0, y, z)];
-                for (int x = 1; x < ChunkSide - 1; x++)
-                {
-                    uint32_t idx = MortonCode::Encode(x, y, z);
-
-                    uint32_t idx_n[5];
-                    idx_n[0] = MortonCode::Add(idx, MortonCode::OneX);
-                    idx_n[1] = MortonCode::Add(idx, MortonCode::OneY);
-                    idx_n[2] = MortonCode::Add(idx, MortonCode::OneZ);
-                    idx_n[3] = MortonCode::Sub(idx, MortonCode::OneY);
-                    idx_n[4] = MortonCode::Sub(idx, MortonCode::OneZ);
-
-                    auto val = vxl_u8[idx] & 0x1f;
-                    if (val != 0)
+                    if (cur_col != 0)
                     {
-                        if ((vxl_u8[idx_n[0]] == 0) | (prev_x == 0))
-                            val |= (1 << 5);
-                        if ((vxl_u8[idx_n[1]] == 0) | (vxl_u8[idx_n[3]] == 0))
-                            val |= (1 << 6);
-                        if ((vxl_u8[idx_n[2]] == 0) | (vxl_u8[idx_n[4]] == 0))
-                            val |= (1 << 7);
-                        vxl_u8[idx] = val;
+                        auto top_col = *(cur_col_p - ChunkSide - 2); //top_col_p++;
+                        auto btm_col = *(cur_col_p + ChunkSide - 2); //btm_col_p++;
+                        auto xz = z | x;
+
+                        while (cur_col != 0)
+                        {
+                            uint32_t fidx;
+                            _tzcnt_u32(cur_col, fidx);
+                            inds_p = buildFace(inds_p, xz, fidx, vxl_u8, backFace);
+                            _blsr_u32(cur_col, cur_col);
+                        }
+
+                        uint32_t cur_col2;
+                        _andn_u32(cur_col_orig >> 1, cur_col_orig, cur_col2);
+                        while (cur_col2 != 0)
+                        {
+                            uint32_t fidx;
+                            _tzcnt_u32(cur_col2, fidx);
+                            inds_p = buildFace(inds_p, xz, fidx, vxl_u8, frontFace);
+                            _blsr_u32(cur_col2, cur_col2);
+                        }
+
+                        uint32_t top_vis;
+                        _andn_u32(top_col, cur_col_orig, top_vis); //(top_col ^ cur_col) & cur_col;
+                        while (top_vis != 0)
+                        {
+                            uint32_t fidx;
+                            _tzcnt_u32(top_vis, fidx);
+                            inds_p = buildFace(inds_p, xz, fidx, vxl_u8, topFace); //append face
+                            _blsr_u32(top_vis, top_vis);
+                        }
+
+                        uint32_t btm_vis;
+                        _andn_u32(btm_col, cur_col_orig, btm_vis); //(btm_col ^ cur_col) & cur_col;
+                        while (btm_vis != 0)
+                        {
+                            uint32_t fidx;
+                            _tzcnt_u32(btm_vis, fidx);
+                            inds_p = buildFace(inds_p, xz, fidx, vxl_u8, btmFace); //append face
+                            _blsr_u32(btm_vis, btm_vis);
+                        }
+
+                        uint32_t left_vis;
+                        _andn_u32(left_col, cur_col_orig, left_vis); //(left_col ^ cur_col) & cur_col;
+                        while (left_vis != 0)
+                        {
+                            uint32_t fidx;
+                            _tzcnt_u32(left_vis, fidx);
+                            inds_p = buildFace(inds_p, xz, fidx, vxl_u8, leftFace); //append face
+                            _blsr_u32(left_vis, left_vis);
+                        }
+
+                        uint32_t right_vis;
+                        _andn_u32(right_col, cur_col_orig, right_vis); //(right_col ^ cur_col) & cur_col;
+                        while (right_vis != 0)
+                        {
+                            uint32_t fidx;
+                            _tzcnt_u32(right_vis, fidx);
+                            inds_p = buildFace(inds_p, xz, fidx, vxl_u8, rightFace); //append face
+                            _blsr_u32(right_vis, right_vis);
+                        }
                     }
-                    prev_x = val;
-                }
-            }
-    }
-    break;
-    case ChunkCodingScheme::ShortRep:
-    {
-    }
-    break;
-    }
-}
 
-int PVV::Chunk::CompiledLen()
-{
-    switch (codingScheme)
-    {
-    case ChunkCodingScheme::ByteRep:
-    {
-        //2 voxels per location
-        //if the entire chunk is full, submit the chunk directly for rendering as a large cube
-        if (set_voxel_cnt != ChunkLen)
-        {
-            int ent_cnt = 0;
-            for (int i = 0; i < ChunkLen / 2; i++)
-                if (vxl_u16[i])
-                    ent_cnt++;
-            return ent_cnt;
-        }
-        return 0;
-        break;
-    }
-    case ChunkCodingScheme::ShortRep:
-    {
-        //1 voxel per location
-        //if the entire chunk is full, submit the chunk directly for rendering as a large cube
-        if (set_voxel_cnt != ChunkLen)
-        {
-            int ent_cnt = 0;
-            for (int i = 0; i < ChunkLen; i++)
-                if (vxl_u16[i])
-                    ent_cnt++;
-            return ent_cnt;
-        }
-        return 0;
-        break;
-    }
-    case ChunkCodingScheme::SingleFull:
-    {
-        //full cube, separate render path
-        return 1;
-        break;
-    }
-    }
-
-    return 0;
-}
-
-void PVV::Chunk::Compile(struct PVV::ChunkCoded *coded)
-{
-    switch (codingScheme)
-    {
-    case ChunkCodingScheme::ByteRep:
-    {
-        //2 voxels per location
-        //if the entire chunk is full, submit the chunk directly for rendering as a large cube
-        if (set_voxel_cnt != ChunkLen)
-        {
-            int idx = 0;
-            for (uint32_t i = 0; i < ChunkLen; i += 2)
-                if (vxl_u16[i / 2])
-                {
-                    coded[idx].x = MortonCode::DecodeX(i);
-                    coded[idx].y = MortonCode::DecodeY(i);
-                    coded[idx].z = MortonCode::DecodeZ(i);
-                    coded[idx].full_blk = 0;
-                    coded[idx].vxls.u16 = vxl_u16[i / 2];
-                    idx++;
+                    left_col = cur_col_orig;
+                    cur_col_orig = cur_col = right_col;
                 }
-        }
-        break;
-    }
-    case ChunkCodingScheme::ShortRep:
-    {
-        //1 voxel per location
-        //if the entire chunk is full, submit the chunk directly for rendering as a large cube
-        if (set_voxel_cnt != ChunkLen)
-        {
-            int idx = 0;
-            for (uint32_t i = 0; i < ChunkLen; i++)
-                if (vxl_u16[i])
-                {
-                    coded[idx].x = MortonCode::DecodeX(i);
-                    coded[idx].y = MortonCode::DecodeY(i);
-                    coded[idx].z = MortonCode::DecodeZ(i);
-                    coded[idx].full_blk = 0;
-                    coded[idx].vxls.u16 = vxl_u16[i];
-                    idx++;
-                }
+            else
+                cur_col_p += ChunkSide - 2;
         }
         break;
     }
     case ChunkCodingScheme::SingleFull:
     {
         //full cube, separate render path
-        {
-            coded->x = 0;
-            coded->y = 0;
-            coded->z = 0;
-            coded->full_blk = 1;
-            coded->vxls.u16 = allVal;
-        }
         break;
     }
     }
+}
+
+uint32_t PVV::Chunk::GetCompiledLen()
+{
+    switch (codingScheme)
+    {
+    case ChunkCodingScheme::ByteRep:
+    {
+        auto visMask = vismasks;
+        auto cur_col_p = visMask + ChunkSide;
+        uint32_t expectedLen = 0;
+
+        for (uint32_t x = 0; x < (ChunkSide - 2); x++)
+        {
+            auto left_col = *cur_col_p++;
+            auto cur_col_orig = *cur_col_p++;
+            auto region = x / RegionLayerCount;
+
+            if (regional_voxel_cnt[region] > 0)
+                for (uint32_t z = 0; z < (ChunkSide - 2); z++)
+                {
+                    auto right_col = *cur_col_p++;
+
+                    if (cur_col_orig != 0)
+                    {
+                        auto top_col = *(cur_col_p - ChunkSide - 2); //top_col_p++;
+                        auto btm_col = *(cur_col_p + ChunkSide - 2); //btm_col_p++;
+                        expectedLen += __popcntd(cur_col_orig);
+
+                        uint32_t cur_col2;
+                        _andn_u32(cur_col_orig >> 1, cur_col_orig, cur_col2);
+                        expectedLen += __popcntd(cur_col2);
+
+                        uint32_t top_vis;
+                        _andn_u32(top_col, cur_col_orig, top_vis); //(top_col ^ cur_col) & cur_col;
+                        expectedLen += __popcntd(top_vis);
+
+                        uint32_t btm_vis;
+                        _andn_u32(btm_col, cur_col_orig, btm_vis); //(btm_col ^ cur_col) & cur_col;
+                        expectedLen += __popcntd(btm_vis);
+
+                        uint32_t left_vis;
+                        _andn_u32(left_col, cur_col_orig, left_vis); //(left_col ^ cur_col) & cur_col;
+                        expectedLen += __popcntd(left_vis);
+
+                        uint32_t right_vis;
+                        _andn_u32(right_col, cur_col_orig, right_vis); //(right_col ^ cur_col) & cur_col;
+                        expectedLen += __popcntd(right_vis);
+                    }
+
+                    left_col = cur_col_orig;
+                    cur_col_orig = right_col;
+                }
+            else
+                cur_col_p += ChunkSide - 2;
+        }
+
+        return expectedLen * 6;
+        break;
+    }
+    case ChunkCodingScheme::SingleFull:
+    {
+        //full cube, separate render path
+        break;
+    }
+    }
+    return -1;
 }
 
 void *PVV::Chunk::GetRawData()
@@ -597,10 +330,26 @@ void PVV::Chunk::Decompress()
 {
     if (codingScheme == ChunkCodingScheme::SingleFull)
     {
-        vxl_u8 = new uint8_t[ChunkLen + 1];
-        memset(vxl_u8, allVal, ChunkLen);
-        vxl_u8[ChunkLen] = 0x00;
-        set_voxel_cnt = ChunkLen;
+        vismasks = new uint32_t[ChunkSide * ChunkSide];
+        memset(vismasks, (allVal != 0) ? 0xff : 0x00, ChunkSide * ChunkSide * sizeof(uint32_t));
+
+        vxl_u8 = mem_parent->AllocChunkBlock();
+        if (allVal != 0)
+        {
+            set_voxel_cnt = ChunkLen;
+            for (int i = 0; i < RegionCount; i++)
+            {
+                regional_voxel_cnt[i] = 4096;
+                mem_parent->CommitChunkRegion(vxl_u8, i);
+            }
+            memset(vxl_u8, allVal, ChunkLen);
+        }
+        else
+        {
+            set_voxel_cnt = 0;
+            for (int i = 0; i < RegionCount; i++)
+                regional_voxel_cnt[i] = 0;
+        }
         codingScheme = ChunkCodingScheme::ByteRep;
     }
 }
@@ -612,6 +361,9 @@ PVV::ChunkCodingScheme PVV::Chunk::GetCodingScheme()
 
 PVV::Chunk::~Chunk()
 {
-    if (vxl_u16 != nullptr)
-        delete[] vxl_u16;
+    if (vxl_u8 != nullptr)
+        delete[] vxl_u8;
+
+    if (vismasks != nullptr)
+        delete[] vismasks;
 }

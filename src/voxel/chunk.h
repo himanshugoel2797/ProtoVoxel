@@ -1,38 +1,15 @@
 #pragma once
 
 #include <stdint.h>
+#include <vector>
+#include "chunk_malloc.h"
 
 namespace ProtoVoxel::Voxel
 {
     enum class ChunkCodingScheme
     {
         SingleFull, //Single block type for the entire chunk
-        ByteRep,    //3 bit mask + 5 bit translation table
-        ShortRep,   //3 bit mask + 13 bit translation table
-    };
-
-    struct ChunkCoded
-    {
-        uint16_t x : 5;
-        uint16_t y : 5;
-        uint16_t z : 5;
-        uint16_t full_blk : 1;
-        union
-        {
-            struct
-            {
-                uint16_t v0 : 4;
-                uint16_t v1 : 4;
-                uint16_t v2 : 4;
-                uint16_t v3 : 4;
-            } u4;
-            struct
-            {
-                uint16_t v0 : 8;
-                uint16_t v1 : 8;
-            } u8;
-            uint16_t u16;
-        } vxls;
+        ByteRep,    //8 bit translation table
     };
 
     class Chunk
@@ -44,24 +21,36 @@ namespace ProtoVoxel::Voxel
         //gpu can process these directly into meshlets
         //cpu can use generic compression schemes on top before archiving
         static const int ChunkLen = ChunkSide * ChunkSide * ChunkLayers;
+        static const int RegionCount = 8; //(32 * 32 * 32 / 4096)
+        static const int RegionSize = ChunkLen / RegionCount;
+        static const int RegionLayerCount = ChunkLayers / RegionCount;
 
     private:
+        ChunkMalloc *mem_parent;
         ChunkCodingScheme codingScheme;
         uint16_t allVal;
         uint16_t set_voxel_cnt;
-        union
+        uint16_t regional_voxel_cnt[RegionCount];
+        uint32_t *vismasks;
+        uint8_t *vxl_u8;
+
+        static inline uint32_t Encode(uint8_t x, uint8_t y, uint8_t z)
         {
-            uint16_t *vxl_u16;
-            uint8_t *vxl_u8;
-            struct
-            {
-                uint8_t v0 : 4;
-                uint8_t v1 : 4;
-            } * vxl_u4;
-        };
+            return y | ((uint32_t)z << 5) | ((uint32_t)x << 10);
+        }
+
+        static inline uint32_t EncodeXZ(uint8_t x, uint8_t z)
+        {
+            return ((uint32_t)z) | ((uint32_t)x << 5);
+        }
+
+        static inline uint32_t EncodeXZ_Y(uint32_t xz, uint8_t y)
+        {
+            return y | (xz << 5);
+        }
 
     public:
-        Chunk();
+        Chunk(ChunkMalloc *mem_parent);
         ~Chunk();
 
         ChunkCodingScheme GetCodingScheme();
@@ -69,11 +58,8 @@ namespace ProtoVoxel::Voxel
         void SetAll(uint16_t val);
         void SetSingle(uint8_t x, uint8_t y, uint8_t z, uint16_t val);
 
-        void SetSingleFast(uint8_t x, uint8_t y, uint8_t z, uint16_t val);
-        void UpdateMasks();
-
-        int CompiledLen();
-        void Compile(struct ProtoVoxel::Voxel::ChunkCoded *coded);
+        void Compile(uint32_t *inds_p);
+        uint32_t GetCompiledLen();
 
         void *GetRawData();
         uint16_t GetVoxelCount();

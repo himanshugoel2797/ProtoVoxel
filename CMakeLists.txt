@@ -15,6 +15,7 @@ add_executable(ProtoVoxel main.cpp ${SRC_FILES})
 set_property(TARGET ProtoVoxel PROPERTY CXX_STANDARD 17)
 #set_property(TARGET ProtoVoxel PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 
+target_compile_options(ProtoVoxel PRIVATE -mavx2 -mbmi)
 target_link_directories(ProtoVoxel PRIVATE ${CMAKE_SOURCE_DIR}/glfw/lib-mingw-w64)
 target_link_libraries(ProtoVoxel glfw3 glad imgui OpenGL::GL ${CMAKE_DL_LIBS})
 target_compile_definitions(ProtoVoxel PRIVATE DEBUG)
