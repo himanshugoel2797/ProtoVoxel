@@ -42,17 +42,21 @@ public:
         uint32_t idx_offset = 0;
 
         draw_cmds.BeginFrame();
-        for (int i = 0; i < 128; i++)
+        for (int i = 0; i < 1; i++)
         {
             chnks[i].Initialize(&chunk_mem);
             chnks[i].SetSingle(1, 1, 1, 1);
+            chnks[i].SetSingle(1, 2, 1, 1);
+            chnks[i].SetSingle(2, 1, 1, 1);
+            chnks[i].SetSingle(1, 1, 2, 1);
+            chnks[i].SetSingle(2, 2, 2, 1);
 
             uint32_t loopback_cntr = 0;
             auto count = chnks[i].GetCompiledLen();
             auto mem_blk = mesh_mem.Alloc(count, &loopback_cntr);
-            //chnks[i].Compile(mem_blk);
-            for (int j = 0; j < count; j++)
-                mem_blk[j] = j;
+            chnks[i].Compile(mem_blk);
+            //for (int j = 0; j < count; j++)
+            //    mem_blk[j] = j;
 
             if (count > 0)
             {
@@ -88,13 +92,14 @@ layout(std140, binding = 0) uniform GlobalParams_t {
 out vec2 UV;
 
 void main(){
-            float x = -1.0f + float((gl_VertexID & 1) << 2);
-            float y = -1.0f + float((gl_VertexID & 2) << 1);
+            float x = float((gl_VertexID >> 24) & 0x1f);
+            float y = float((gl_VertexID >> 13) & 0x3f);
+            float z = float((gl_VertexID >> 19) & 0x1f);
 
             UV.x = (x + 1.0f) * 0.5f;
             UV.y = (y + 1.0f) * 0.5f;
 
-            gl_Position = GlobalParams.vp * vec4(x, y, 0.0f, 1);
+            gl_Position = GlobalParams.vp * vec4(x, y, z, 1);
 })");
         vert.Compile();
 
@@ -157,6 +162,7 @@ void main(){
     void Render(double time) override
     {
         PVG::GraphicsDevice::BindGraphicsPipeline(pipeline);
+        //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         PVG::GraphicsDevice::MulitDrawElementsIndirectCount(PVG::Topology::Triangles, PVG::IndexType::UInt, 16, 0, 0, draw_count);
     }
 };

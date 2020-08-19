@@ -101,43 +101,43 @@ static inline uint32_t *buildFace(uint32_t *inds, uint32_t xz, uint32_t y, uint8
     {
     case backFace:
         cmn_axis = (1 << 19) | face;
-        x_axis = (1 << 24) | cmn_axis; //x
-        y_axis = (1 << 14) | cmn_axis; //y
+        x_axis = (1 << 24); //x
+        y_axis = (1 << 13); //y
         break;
     case frontFace:
         cmn_axis = 0 | face;
-        x_axis = (1 << 24) | cmn_axis; //x
-        y_axis = (1 << 14) | cmn_axis; //y
+        x_axis = (1 << 24); //x
+        y_axis = (1 << 13); //y
         break;
     case topFace:
-        cmn_axis = (1 << 14) | face;   //y
-        x_axis = (1 << 24) | cmn_axis; //x
-        y_axis = (1 << 19) | cmn_axis; //z
+        cmn_axis = (1 << 13) | face; //y
+        x_axis = (1 << 24);          //x
+        y_axis = (1 << 19);          //z
         break;
     case btmFace:
         cmn_axis = 0 | face;
-        x_axis = (1 << 24) | cmn_axis; //x
-        y_axis = (1 << 19) | cmn_axis; //z
+        x_axis = (1 << 24); //x
+        y_axis = (1 << 19); //z
         break;
     case leftFace:
-        cmn_axis = (1 << 24) | face;   //x
-        x_axis = (1 << 14) | cmn_axis; //y
-        y_axis = (1 << 19) | cmn_axis; //z
+        cmn_axis = (1 << 24) | face; //x
+        x_axis = (1 << 13);          //y
+        y_axis = (1 << 19);          //z
         break;
     case rightFace:
         cmn_axis = 0 | face;
-        x_axis = (1 << 14) | cmn_axis; //y
-        y_axis = (1 << 19) | cmn_axis; //z
+        x_axis = (1 << 13); //y
+        y_axis = (1 << 19); //z
         break;
     }
 
-    auto base_v = ((xyz << 14) | mat);
-    auto base_v_x = base_v + x_axis;
-    auto base_v_y = base_v + y_axis;
+    auto base_v = ((xyz << 13) | mat);
+    auto base_v_x = base_v + x_axis + cmn_axis;
+    auto base_v_y = base_v + y_axis + cmn_axis;
     inds[3] = inds[0] = base_v + cmn_axis;
     inds[1] = base_v_x;
     inds[5] = base_v_y;
-    inds[4] = inds[2] = base_v_x | base_v_y;
+    inds[4] = inds[2] = base_v + x_axis + y_axis + cmn_axis;
     return inds + 6;
 }
 
