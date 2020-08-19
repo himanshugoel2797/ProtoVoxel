@@ -5,13 +5,17 @@
 
 namespace PVV = ProtoVoxel::Voxel;
 
-PVV::Chunk::Chunk(ChunkMalloc *mem_parent)
+PVV::Chunk::Chunk()
+{
+}
+
+void PVV::Chunk::Initialize(ChunkMalloc *mem_parent)
 {
     this->mem_parent = mem_parent;
     vxl_u8 = nullptr;
     vismasks = nullptr;
     codingScheme = ChunkCodingScheme::SingleFull;
-    allVal = 0;
+    allVal = -1;
     set_voxel_cnt = 0;
 }
 
@@ -19,7 +23,7 @@ void PVV::Chunk::SetAll(uint16_t val)
 {
     codingScheme = ChunkCodingScheme::SingleFull;
     allVal = val;
-    if (allVal != 0)
+    if (allVal != -1)
         set_voxel_cnt = ChunkLen;
     else
         set_voxel_cnt = 0;
@@ -34,7 +38,7 @@ void PVV::Chunk::SetAll(uint16_t val)
     }
 }
 
-void PVV::Chunk::SetSingle(uint8_t x, uint8_t y, uint8_t z, uint16_t val)
+void PVV::Chunk::SetSingle(uint8_t x, uint8_t y, uint8_t z, int16_t val)
 {
     switch (codingScheme)
     {
@@ -42,12 +46,13 @@ void PVV::Chunk::SetSingle(uint8_t x, uint8_t y, uint8_t z, uint16_t val)
     {
         uint32_t b_idx = EncodeXZ(x, z);
         auto vmask = vismasks[b_idx];
-        auto mask = (1 << y);
-        auto region = x / RegionLayerCount;
+        auto mask = (1ull << y);
+        uint32_t idx = EncodeXZ_Y(b_idx, y);
+        auto region = idx / RegionSize;
 
-        bool add_voxel = ((vmask & mask) == 0 && val != 0);
-        bool rm_voxel = ((vmask & mask) != 0 && val == 0);
-        vismasks[b_idx] = (vmask & ~mask) | (-(val != 0) & mask); //Set the visibility bit appropriately
+        bool add_voxel = ((vmask & mask) == 0 && val != -1);
+        bool rm_voxel = ((vmask & mask) != 0 && val == -1);
+        vismasks[b_idx] = (vmask & ~mask) | (-(val != -1) & mask); //Set the visibility bit appropriately
         if (add_voxel)
         {
             if (regional_voxel_cnt[region] == 0)
@@ -55,7 +60,6 @@ void PVV::Chunk::SetSingle(uint8_t x, uint8_t y, uint8_t z, uint16_t val)
             regional_voxel_cnt[region]++;
             set_voxel_cnt++;
         }
-        uint32_t idx = EncodeXZ_Y(b_idx, y);
         vxl_u8[idx] = val;
         if (rm_voxel)
         {
@@ -137,13 +141,25 @@ static inline uint32_t *buildFace(uint32_t *inds, uint32_t xz, uint32_t y, uint8
     return inds + 6;
 }
 
+static inline uint32_t *buildFace_fullSlice(uint32_t *inds, uint32_t x, uint8_t *vxl_data)
+{
+    //6 faces of 6 vertices each
+    return inds + 6 * 6;
+}
+
+static inline uint32_t *buildFace_fullCube(uint32_t *inds, uint8_t *vxl_data)
+{
+    //6 faces of 6 vertices each
+    return inds + 6 * 6;
+}
+
 #if 1
 #include <x86intrin.h>
-#define _andn_u32(a, b, ovar) ovar = __andn_u32(a, b)
+#define _andn_u32(a, b, ovar) ovar = __andn_u64(a, b)
 
-#define _blsr_u32(a, ovar) ovar = __blsr_u32(a);
+#define _blsr_u32(a, ovar) ovar = __blsr_u64(a);
 
-#define _tzcnt_u32(ax, ovar) ovar = __tzcnt_u32(ax);
+#define _tzcnt_u32(ax, ovar) ovar = __tzcnt_u64(ax);
 #endif
 
 void PVV::Chunk::Compile(uint32_t *inds_p)
@@ -156,15 +172,24 @@ void PVV::Chunk::Compile(uint32_t *inds_p)
         auto cur_col_p = visMask + ChunkSide;
         auto inds_orig = inds_p;
 
-        for (uint32_t x = 1 << 10; x < (ChunkSide - 1) << 10; x += 1 << 10)
+        if (set_voxel_cnt == ChunkLen)
+        {
+            //Direct cube
+            inds_p = buildFace_fullCube(inds_p, vxl_u8);
+            return;
+        }
+
+        for (uint32_t x = 1 << 11; x < (ChunkSide - 1) << 11; x += 1 << 11)
         {
             auto left_col = *cur_col_p++;
             auto cur_col = *cur_col_p++;
             auto cur_col_orig = cur_col;
             auto region = x / RegionSize;
 
-            if (regional_voxel_cnt[region] > 0)
-                for (uint32_t z = 1 << 5; z < (ChunkSide - 1) << 5; z += 1 << 5)
+            if (regional_voxel_cnt[region] >= RegionSize)
+                inds_p = buildFace_fullSlice(inds_p, x, vxl_u8);
+            else if (regional_voxel_cnt[region] > 0)
+                for (uint32_t z = 1 << 6; z < (ChunkSide - 1) << 6; z += 1 << 6)
                 {
                     auto right_col = *cur_col_p++;
 
@@ -259,13 +284,18 @@ uint32_t PVV::Chunk::GetCompiledLen()
         auto cur_col_p = visMask + ChunkSide;
         uint32_t expectedLen = 0;
 
+        if (set_voxel_cnt == ChunkLen)
+            return 6 * 6;
+
         for (uint32_t x = 0; x < (ChunkSide - 2); x++)
         {
             auto left_col = *cur_col_p++;
             auto cur_col_orig = *cur_col_p++;
-            auto region = x / RegionLayerCount;
+            auto region = x / (RegionSize >> 11);
 
-            if (regional_voxel_cnt[region] > 0)
+            if (regional_voxel_cnt[region] >= RegionSize)
+                expectedLen += 6;
+            else if (regional_voxel_cnt[region] > 0)
                 for (uint32_t z = 0; z < (ChunkSide - 2); z++)
                 {
                     auto right_col = *cur_col_p++;
@@ -274,27 +304,27 @@ uint32_t PVV::Chunk::GetCompiledLen()
                     {
                         auto top_col = *(cur_col_p - ChunkSide - 2); //top_col_p++;
                         auto btm_col = *(cur_col_p + ChunkSide - 2); //btm_col_p++;
-                        expectedLen += __popcntd(cur_col_orig);
+                        expectedLen += __popcntq(cur_col_orig);
 
                         uint32_t cur_col2;
                         _andn_u32(cur_col_orig >> 1, cur_col_orig, cur_col2);
-                        expectedLen += __popcntd(cur_col2);
+                        expectedLen += __popcntq(cur_col2);
 
                         uint32_t top_vis;
                         _andn_u32(top_col, cur_col_orig, top_vis); //(top_col ^ cur_col) & cur_col;
-                        expectedLen += __popcntd(top_vis);
+                        expectedLen += __popcntq(top_vis);
 
                         uint32_t btm_vis;
                         _andn_u32(btm_col, cur_col_orig, btm_vis); //(btm_col ^ cur_col) & cur_col;
-                        expectedLen += __popcntd(btm_vis);
+                        expectedLen += __popcntq(btm_vis);
 
                         uint32_t left_vis;
                         _andn_u32(left_col, cur_col_orig, left_vis); //(left_col ^ cur_col) & cur_col;
-                        expectedLen += __popcntd(left_vis);
+                        expectedLen += __popcntq(left_vis);
 
                         uint32_t right_vis;
                         _andn_u32(right_col, cur_col_orig, right_vis); //(right_col ^ cur_col) & cur_col;
-                        expectedLen += __popcntd(right_vis);
+                        expectedLen += __popcntq(right_vis);
                     }
 
                     left_col = cur_col_orig;
@@ -321,7 +351,7 @@ void *PVV::Chunk::GetRawData()
     return (void *)vxl_u8;
 }
 
-uint16_t PVV::Chunk::GetVoxelCount()
+uint32_t PVV::Chunk::GetVoxelCount()
 {
     return set_voxel_cnt;
 }
@@ -330,16 +360,16 @@ void PVV::Chunk::Decompress()
 {
     if (codingScheme == ChunkCodingScheme::SingleFull)
     {
-        vismasks = new uint32_t[ChunkSide * ChunkSide];
-        memset(vismasks, (allVal != 0) ? 0xff : 0x00, ChunkSide * ChunkSide * sizeof(uint32_t));
+        vismasks = new uint64_t[ChunkSide * ChunkSide];
+        memset(vismasks, (allVal != -1) ? 0xff : 0x00, ChunkSide * ChunkSide * sizeof(uint64_t));
 
         vxl_u8 = mem_parent->AllocChunkBlock();
-        if (allVal != 0)
+        if (allVal != -1)
         {
             set_voxel_cnt = ChunkLen;
             for (int i = 0; i < RegionCount; i++)
             {
-                regional_voxel_cnt[i] = 4096;
+                regional_voxel_cnt[i] = RegionSize;
                 mem_parent->CommitChunkRegion(vxl_u8, i);
             }
             memset(vxl_u8, allVal, ChunkLen);

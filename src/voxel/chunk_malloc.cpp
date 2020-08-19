@@ -10,8 +10,8 @@
 
 namespace PVV = ProtoVoxel::Voxel;
 
-const uint32_t BlockCount = (1 << 18);
-const uint64_t FullSize = BlockCount * (PVV::Chunk::ChunkLen + PVV::Chunk::ChunkSide * PVV::Chunk::ChunkSide * sizeof(uint32_t));
+const uint64_t BlockCount = (1 << 18);
+const uint64_t FullSize = BlockCount * PVV::Chunk::ChunkLen;
 
 PVV::ChunkMalloc::ChunkMalloc()
 {

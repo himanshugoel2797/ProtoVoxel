@@ -21,8 +21,8 @@ static void glfw_windowsize_callback(GLFWwindow *window, int w, int h)
 }
 
 static void gl_debug_callback(GLenum src, GLenum type, GLuint id,
-    GLenum severity, GLsizei length,
-    const GLchar *message, const void *userParam)
+                              GLenum severity, GLsizei length,
+                              const GLchar *message, const void *userParam)
 {
     printf("OpenGL Debug Message: %s\n", message);
 }
@@ -44,11 +44,11 @@ static void initGLFW()
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
         glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-        #ifdef DEBUG
+#ifdef DEBUG
         glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
-        #else
+#else
         glfwWindowHint(GLFW_CONTEXT_NO_ERROR, GLFW_TRUE);
-        #endif
+#endif
 
         glfwInited = true;
     }
@@ -76,10 +76,10 @@ void PVC::Window::InitGL()
     glfwSwapInterval(0);
 
     gladLoadGL();
-    #ifdef DEBUG
+#ifdef DEBUG
     glDebugMessageCallback(gl_debug_callback, nullptr);
     glEnable(GL_DEBUG_OUTPUT);
-    #endif
+#endif
     const GLubyte *renderer = glGetString(GL_RENDERER);
     const GLubyte *version = glGetString(GL_VERSION);
 
@@ -118,10 +118,10 @@ void PVC::Window::StartFrame()
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    #ifdef DEBUG
+#ifdef DEBUG
     ImGui::ShowMetricsWindow(&show_demo_window);
-    // ImGui::ShowDemoWindow(&show_demo_window);
-    #endif
+// ImGui::ShowDemoWindow(&show_demo_window);
+#endif
 }
 
 void PVC::Window::SwapBuffers()
@@ -137,7 +137,8 @@ void PVC::Window::ResizeHandler(int w, int h)
     fbuf->h = h;
 }
 
-bool PVC::Window::ShouldClose() {
+bool PVC::Window::ShouldClose()
+{
     return (bool)glfwWindowShouldClose(winHndl);
 }
 
@@ -149,6 +150,12 @@ PVC::Window::~Window()
     glfwDestroyWindow(winHndl);
 }
 
-PVG::Framebuffer *PVC::Window::GetFramebuffer() {
+PVG::Framebuffer *PVC::Window::GetFramebuffer()
+{
     return this->fbuf;
+}
+
+double PVC::Window::GetTime()
+{
+    return glfwGetTime();
 }

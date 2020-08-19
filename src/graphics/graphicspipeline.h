@@ -3,7 +3,6 @@
 #include <stdint.h>
 #include <memory>
 
-
 #include "glad/glad.h"
 #include "glm/vec4.hpp"
 
@@ -12,18 +11,22 @@
 #include "shaderprogram.h"
 #include "texture.h"
 
-namespace ProtoVoxel::Graphics {
+namespace ProtoVoxel::Graphics
+{
     class GraphicsDevice;
-    class GraphicsPipeline {
+    class GraphicsPipeline
+    {
     private:
-        struct BufferBinding {
+        struct BufferBinding
+        {
             bool valid;
             std::weak_ptr<GpuBuffer> buffer;
             size_t offset;
             size_t sz;
         };
 
-        struct TextureBinding {
+        struct TextureBinding
+        {
             bool valid;
             std::weak_ptr<Texture> texture;
         };
@@ -33,12 +36,12 @@ namespace ProtoVoxel::Graphics {
         std::weak_ptr<ShaderProgram> program;
         struct BufferBinding indirectBuffer;
         struct BufferBinding indexBuffer;
-        struct BufferBinding* ssbos;
-        struct BufferBinding* ubos;
-        struct TextureBinding* textures;
+        struct BufferBinding *ssbos;
+        struct BufferBinding *ubos;
+        struct TextureBinding *textures;
 
         glm::vec4 clear_color;
-        float clear_depth;
+        float clear_depth = 0;
 
         friend class GraphicsDevice;
 
@@ -46,25 +49,25 @@ namespace ProtoVoxel::Graphics {
         GraphicsPipeline();
         ~GraphicsPipeline();
 
-        void SetClearColor(glm::vec4 const& vec);
+        void SetClearColor(glm::vec4 const &vec);
         void SetDepth(float clearDepth);
 
         void SetDepthTest(GLenum depthTest);
         void SetFramebuffer(std::weak_ptr<Framebuffer> fbuf);
         void SetShaderProgram(std::weak_ptr<ShaderProgram> program);
         void SetIndirectBuffer(std::weak_ptr<GpuBuffer> indirect,
-            size_t offset,
-            size_t sz);
+                               size_t offset,
+                               size_t sz);
         void SetIndexBuffer(std::weak_ptr<GpuBuffer> index, size_t offset, size_t sz);
 
         void SetSSBO(int bindpoint,
-            std::weak_ptr<GpuBuffer> buffer,
-            size_t offset,
-            size_t sz);
+                     std::weak_ptr<GpuBuffer> buffer,
+                     size_t offset,
+                     size_t sz);
         void SetUBO(int bindpoint,
-            std::weak_ptr<GpuBuffer> buffer,
-            size_t offset,
-            size_t sz);
+                    std::weak_ptr<GpuBuffer> buffer,
+                    size_t offset,
+                    size_t sz);
         void SetTexture(int bindpoint, std::weak_ptr<Texture> texture);
     };
-}  // namespace ProtoVoxel::Graphics
+} // namespace ProtoVoxel::Graphics
