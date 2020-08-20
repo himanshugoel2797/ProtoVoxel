@@ -117,11 +117,11 @@ void PVC::FreeCamera::Update(double time)
 
     if (PVC::Input::IsKeyDown(AccelerateBinding))
     {
-        moveSpeed += 0.02f * moveSpeed;
+        moveSpeed += 0.0002f * moveSpeed;
     }
     else if (PVC::Input::IsKeyDown(DecelerateBinding))
     {
-        moveSpeed -= 0.02f * moveSpeed;
+        moveSpeed -= 0.0002f * moveSpeed;
     }
     //#endif
 

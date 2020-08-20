@@ -31,6 +31,8 @@ public:
     PVV::DrawCmdList draw_cmds;
     std::shared_ptr<PVG::ShaderProgram> render_prog;
     std::shared_ptr<PVG::Framebuffer> fbuf;
+    PVG::Texture colorTgt;
+    PVG::Texture depthTgt;
     PVG::GraphicsPipeline pipeline;
     int draw_count;
 
@@ -45,18 +47,27 @@ public:
         for (int i = 0; i < 1; i++)
         {
             chnks[i].Initialize(&chunk_mem);
-            chnks[i].SetSingle(1, 1, 1, 1);
-            chnks[i].SetSingle(1, 2, 1, 1);
-            chnks[i].SetSingle(2, 1, 1, 1);
-            chnks[i].SetSingle(1, 1, 2, 1);
-            chnks[i].SetSingle(2, 2, 2, 1);
+
+            for (int x = 1; x < 31; x++)
+                for (int z = 1; z < 31; z++)
+                    for (int y = 1; y < 63; y++)
+                    //for (int q = 0; q < 60000; q++)
+                    {
+                        //uint8_t x = rand() % 32;
+                        //uint8_t y = rand() % 64;
+                        //uint8_t z = rand() % 32;
+
+                        chnks[i].SetSingle(x, y, z, 1);
+                    }
+            //chnks[i].SetSingle(0, 1, 1, 1);
+            //chnks[i].SetSingle(1, 0, 1, 1);
+            //chnks[i].SetSingle(1, 1, 0, 1);
+            //chnks[i].SetSingle(1, 1, 1, 1);
 
             uint32_t loopback_cntr = 0;
             auto count = chnks[i].GetCompiledLen();
             auto mem_blk = mesh_mem.Alloc(count, &loopback_cntr);
             chnks[i].Compile(mem_blk);
-            //for (int j = 0; j < count; j++)
-            //    mem_blk[j] = j;
 
             if (count > 0)
             {
@@ -88,16 +99,21 @@ layout(std140, binding = 0) uniform GlobalParams_t {
         vec4 eyeDir;
 } GlobalParams;
 
+layout(std140, binding = 1) uniform ChunkOffsets_t{
+        vec4 v[4096];
+} ChunkOffsets;
+
 // Output data ; will be interpolated for each fragment.
-out vec2 UV;
+out vec3 UV;
 
 void main(){
-            float x = float((gl_VertexID >> 24) & 0x1f);
-            float y = float((gl_VertexID >> 13) & 0x3f);
-            float z = float((gl_VertexID >> 19) & 0x1f);
+            float x = float((gl_VertexID >> 19) & 0x1f);
+            float y = float((gl_VertexID >> 8) & 0x3f);
+            float z = float((gl_VertexID >> 14) & 0x1f);
 
-            UV.x = (x + 1.0f) * 0.5f;
-            UV.y = (y + 1.0f) * 0.5f;
+            UV.x = mod(x, 2);
+            UV.y = mod(y, 2);
+            UV.z = mod(z, 2);
 
             gl_Position = GlobalParams.vp * vec4(x, y, z, 1);
 })");
@@ -107,7 +123,7 @@ void main(){
             R"(#version 460
 
 // Interpolated values from the vertex shaders
-in vec2 UV;
+in vec3 UV;
 
 // Ouput data
 layout(location = 0) out vec4 color;
@@ -131,7 +147,7 @@ layout(std140, binding = 0) uniform GlobalParams_t {
 } GlobalParams;
 
 void main(){
-            color = vec4(1);
+            color = vec4(UV, 1);
             color.a = 1;
 }
 )");
@@ -142,8 +158,18 @@ void main(){
         render_prog->Attach(frag);
         render_prog->Link();
 
-        fbuf = PVG::Framebuffer::GetDefault();
+        fbuf = std::make_shared<PVG::Framebuffer>(640, 480);
 
+        colorTgt.SetStorage(GL_TEXTURE_2D, 1, GL_RGBA8, 640, 480);
+        depthTgt.SetStorage(GL_TEXTURE_2D, 1, GL_DEPTH_COMPONENT32F, 640, 480);
+
+        GLenum fbuf_drawbufs[] = {GL_COLOR_ATTACHMENT0};
+        fbuf->Attach(GL_COLOR_ATTACHMENT0, colorTgt, 0);
+        fbuf->Attach(GL_DEPTH_ATTACHMENT, depthTgt, 0);
+        fbuf->DrawBuffers(1, fbuf_drawbufs);
+
+        pipeline.SetDepth(0);
+        pipeline.SetDepthTest(GL_GEQUAL);
         pipeline.SetShaderProgram(render_prog);
         pipeline.SetFramebuffer(fbuf);
         pipeline.SetIndirectBuffer(draw_cmds.GetBuffer(), 0, PVV::DrawCmdList::ListSize);
@@ -162,8 +188,16 @@ void main(){
     void Render(double time) override
     {
         PVG::GraphicsDevice::BindGraphicsPipeline(pipeline);
-        //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        PVG::GraphicsDevice::ClearAll();
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        glCullFace(GL_BACK);
+        glEnable(GL_DEPTH_TEST);
+        glEnable(GL_CULL_FACE);
         PVG::GraphicsDevice::MulitDrawElementsIndirectCount(PVG::Topology::Triangles, PVG::IndexType::UInt, 16, 0, 0, draw_count);
+
+        glDisable(GL_DEPTH_TEST);
+        glBlitNamedFramebuffer(fbuf->GetID(), 0, 0, 0, 640, 480, 0, 0, 640, 480, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 };
 
@@ -178,6 +212,74 @@ int main(int, char **)
     scene.Initialize();
 
     srand(0);
+
+    /*{
+        double avg_duration = 0;
+        int sample_cnt = 10000;
+        int iter_cnt = 60000;
+
+        auto x_v_2 = new uint8_t[sample_cnt * iter_cnt * 3];
+        for (int i = 0; i < sample_cnt * iter_cnt; i++)
+        {
+            uint8_t x = rand() % 32;
+            uint8_t y = rand() % 64;
+            uint8_t z = rand() % 32;
+
+            x_v_2[i * 3 + 0] = x;
+            x_v_2[i * 3 + 1] = y;
+            x_v_2[i * 3 + 2] = z;
+        }
+
+        PVV::ChunkMalloc chnk_malloc;
+        chnk_malloc.Initialize();
+
+        auto x_v = (uint8_t *)x_v_2;
+        for (int samples = 0; samples < sample_cnt; samples++)
+        {
+            PVV::Chunk chnk;
+            chnk.Initialize(&chnk_malloc);
+
+            auto start_ns = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+            for (int i = 0; i < iter_cnt; i++)
+            {
+                uint8_t x = *x_v++;
+                uint8_t y = *x_v++;
+                uint8_t z = *x_v++;
+
+                chnk.SetSingle(x, y, z, 1);
+            }
+            auto stop_ns = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+
+            avg_duration += (stop_ns - start_ns) / 1000.0;
+        }
+        std::cout << "[SetSingle] Duration: " << avg_duration / sample_cnt << "us, Per Insert: " << avg_duration / (sample_cnt * iter_cnt) * 1000 << "ns" << std::endl;
+
+        avg_duration = 0;
+        x_v = (uint8_t *)x_v_2;
+        for (int samples = 0; samples < sample_cnt; samples++)
+        {
+            PVV::Chunk chnk;
+            chnk.Initialize(&chnk_malloc);
+
+            for (int i = 0; i < iter_cnt; i++)
+            {
+                uint8_t x = *x_v++;
+                uint8_t y = *x_v++;
+                uint8_t z = *x_v++;
+
+                chnk.SetSingle(x, y, z, 1);
+            }
+
+            auto start_ns = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+            auto resvec = new uint32_t[chnk.GetCompiledLen()];
+            chnk.Compile(resvec);
+            auto stop_ns = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+            delete[] resvec;
+
+            avg_duration += (stop_ns - start_ns) / 1000.0;
+        }
+        std::cout << "[SetSingle + UpdateMasks] Duration: " << avg_duration / sample_cnt << "us, Per Insert: " << avg_duration / (sample_cnt * iter_cnt) * 1000 << "ns" << std::endl;
+    }*/
 
     double lastTime = 0, nowTime = 0;
     while (!win.ShouldClose())

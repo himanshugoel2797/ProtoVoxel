@@ -117,6 +117,7 @@ void PVG::GraphicsDevice::BindGraphicsPipeline(
                  pipeline.clear_color.b, pipeline.clear_color.a);
 
     glClearDepthf(pipeline.clear_depth);
+    glDepthFunc(pipeline.depthTest);
 }
 
 void PVG::GraphicsDevice::BindComputePipeline(

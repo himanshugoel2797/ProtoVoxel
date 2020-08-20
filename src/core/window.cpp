@@ -91,6 +91,7 @@ void PVC::Window::InitGL()
         varraySetup = true;
     }
 
+    glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
     glMaxShaderCompilerThreadsARB(0xffffffff);
 
     int w,

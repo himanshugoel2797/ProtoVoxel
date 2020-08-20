@@ -1,7 +1,7 @@
 #include "chunk.h"
 #include "mortoncode.h"
 #include <string.h>
-//#include <x86intrin.h>
+#include <x86intrin.h>
 
 namespace PVV = ProtoVoxel::Voxel;
 
@@ -38,6 +38,7 @@ void PVV::Chunk::SetAll(uint16_t val)
     }
 }
 
+#include <iostream>
 void PVV::Chunk::SetSingle(uint8_t x, uint8_t y, uint8_t z, int16_t val)
 {
     switch (codingScheme)
@@ -68,7 +69,6 @@ void PVV::Chunk::SetSingle(uint8_t x, uint8_t y, uint8_t z, int16_t val)
                 mem_parent->DecommitChunkBlock(vxl_u8, region);
             set_voxel_cnt--;
         }
-
         break;
     }
     case ChunkCodingScheme::SingleFull:
@@ -81,12 +81,16 @@ void PVV::Chunk::SetSingle(uint8_t x, uint8_t y, uint8_t z, int16_t val)
     }
 }
 
-const uint32_t backFace = 0;
+const uint32_t backFace = 0 << 29;
 const uint32_t frontFace = 1 << 29;
 const uint32_t topFace = 2 << 29;
 const uint32_t btmFace = 3 << 29;
 const uint32_t leftFace = 4 << 29;
 const uint32_t rightFace = 5 << 29;
+
+const uint32_t y_off = 8;
+const uint32_t x_off = 19;
+const uint32_t z_off = 14;
 
 static inline uint32_t *buildFace(uint32_t *inds, uint32_t xz, uint32_t y, uint8_t *vxl_data, uint32_t face)
 {
@@ -99,45 +103,63 @@ static inline uint32_t *buildFace(uint32_t *inds, uint32_t xz, uint32_t y, uint8
 
     switch (face)
     {
-    case backFace:
-        cmn_axis = (1 << 19) | face;
-        x_axis = (1 << 24); //x
-        y_axis = (1 << 13); //y
-        break;
-    case frontFace:
-        cmn_axis = 0 | face;
-        x_axis = (1 << 24); //x
-        y_axis = (1 << 13); //y
-        break;
-    case topFace:
-        cmn_axis = (1 << 13) | face; //y
-        x_axis = (1 << 24);          //x
-        y_axis = (1 << 19);          //z
-        break;
-    case btmFace:
-        cmn_axis = 0 | face;
-        x_axis = (1 << 24); //x
-        y_axis = (1 << 19); //z
-        break;
     case leftFace:
-        cmn_axis = (1 << 24) | face; //x
-        x_axis = (1 << 13);          //y
-        y_axis = (1 << 19);          //z
+        cmn_axis = (1 << z_off);
+        x_axis = (1 << x_off); //x
+        y_axis = (1 << y_off); //y
         break;
     case rightFace:
-        cmn_axis = 0 | face;
-        x_axis = (1 << 13); //y
-        y_axis = (1 << 19); //z
+        cmn_axis = 0;
+        x_axis = (1 << x_off); //x
+        y_axis = (1 << y_off); //y
+        break;
+    case backFace:
+        cmn_axis = (1 << y_off); //y
+        x_axis = (1 << x_off);   //x
+        y_axis = (1 << z_off);   //z
+        break;
+    case frontFace:
+        cmn_axis = 0;
+        x_axis = (1 << x_off); //x
+        y_axis = (1 << z_off); //z
+        break;
+    case topFace:
+        cmn_axis = (1 << x_off); //x
+        x_axis = (1 << y_off);   //y
+        y_axis = (1 << z_off);   //z
+        break;
+    case btmFace:
+        cmn_axis = 0;
+        x_axis = (1 << y_off); //y
+        y_axis = (1 << z_off); //z
         break;
     }
 
-    auto base_v = ((xyz << 13) | mat);
-    auto base_v_x = base_v + x_axis + cmn_axis;
-    auto base_v_y = base_v + y_axis + cmn_axis;
-    inds[3] = inds[0] = base_v + cmn_axis;
-    inds[1] = base_v_x;
-    inds[5] = base_v_y;
-    inds[4] = inds[2] = base_v + x_axis + y_axis + cmn_axis;
+    auto base_v = ((xyz << 8) | mat | face);
+    auto base_v_cmn = base_v + cmn_axis;
+    auto base_v_x = base_v_cmn + x_axis;
+    auto base_v_y = base_v_cmn + y_axis;
+    auto base_v_x_y = base_v_cmn + x_axis + y_axis;
+
+    switch (face)
+    {
+    case backFace:
+    case rightFace:
+    case btmFace:
+        inds[3] = inds[0] = base_v_cmn;
+        inds[2] = base_v_x;
+        inds[4] = base_v_y;
+        inds[5] = inds[1] = base_v_x_y;
+        break;
+    case topFace:
+    case leftFace:
+    case frontFace:
+        inds[3] = inds[0] = base_v_cmn;
+        inds[1] = base_v_x;
+        inds[5] = base_v_y;
+        inds[4] = inds[2] = base_v_x_y;
+        break;
+    }
     return inds + 6;
 }
 
@@ -150,17 +172,9 @@ static inline uint32_t *buildFace_fullSlice(uint32_t *inds, uint32_t x, uint8_t 
 static inline uint32_t *buildFace_fullCube(uint32_t *inds, uint8_t *vxl_data)
 {
     //6 faces of 6 vertices each
+    //Extract surface voxels to submit directly as data
     return inds + 6 * 6;
 }
-
-#if 1
-#include <x86intrin.h>
-#define _andn_u32(a, b, ovar) ovar = __andn_u64(a, b)
-
-#define _blsr_u32(a, ovar) ovar = __blsr_u64(a);
-
-#define _tzcnt_u32(ax, ovar) ovar = __tzcnt_u64(ax);
-#endif
 
 void PVV::Chunk::Compile(uint32_t *inds_p)
 {
@@ -174,92 +188,60 @@ void PVV::Chunk::Compile(uint32_t *inds_p)
 
         if (set_voxel_cnt == ChunkLen)
         {
-            //Direct cube
-            inds_p = buildFace_fullCube(inds_p, vxl_u8);
+            //Chunk is full and neighbors are full too, chunk is invisible
             return;
         }
+        if (set_voxel_cnt == 0)
+            return;
 
+        uint32_t loop_cnt = 0;
         for (uint32_t x = 1 << 11; x < (ChunkSide - 1) << 11; x += 1 << 11)
         {
             auto left_col = *cur_col_p++;
-            auto cur_col = *cur_col_p++;
-            auto cur_col_orig = cur_col;
+            auto cur_col_orig = *cur_col_p++;
             auto region = x / RegionSize;
 
-            if (regional_voxel_cnt[region] >= RegionSize)
-                inds_p = buildFace_fullSlice(inds_p, x, vxl_u8);
-            else if (regional_voxel_cnt[region] > 0)
+            if (regional_voxel_cnt[region] > 0)
                 for (uint32_t z = 1 << 6; z < (ChunkSide - 1) << 6; z += 1 << 6)
                 {
                     auto right_col = *cur_col_p++;
 
-                    if (cur_col != 0)
+                    if (cur_col_orig != 0)
                     {
                         auto top_col = *(cur_col_p - ChunkSide - 2); //top_col_p++;
                         auto btm_col = *(cur_col_p + ChunkSide - 2); //btm_col_p++;
                         auto xz = z | x;
 
-                        while (cur_col != 0)
-                        {
-                            uint32_t fidx;
-                            _tzcnt_u32(cur_col, fidx);
-                            inds_p = buildFace(inds_p, xz, fidx, vxl_u8, backFace);
-                            _blsr_u32(cur_col, cur_col);
-                        }
+#define STR(X) #X
+#define MESH_LOOP(col, face)                                \
+    while (col != 0)                                        \
+    {                                                       \
+        uint32_t fidx = _tzcnt_u64(col);                    \
+        inds_p = buildFace(inds_p, xz, fidx, vxl_u8, face); \
+        col = _blsr_u64(col);                               \
+    }
 
-                        uint32_t cur_col2;
-                        _andn_u32(cur_col_orig >> 1, cur_col_orig, cur_col2);
-                        while (cur_col2 != 0)
-                        {
-                            uint32_t fidx;
-                            _tzcnt_u32(cur_col2, fidx);
-                            inds_p = buildFace(inds_p, xz, fidx, vxl_u8, frontFace);
-                            _blsr_u32(cur_col2, cur_col2);
-                        }
+                        uint64_t cur_col = __andn_u64(cur_col_orig << 1, cur_col_orig) >> 1;
+                        MESH_LOOP(cur_col, frontFace);
 
-                        uint32_t top_vis;
-                        _andn_u32(top_col, cur_col_orig, top_vis); //(top_col ^ cur_col) & cur_col;
-                        while (top_vis != 0)
-                        {
-                            uint32_t fidx;
-                            _tzcnt_u32(top_vis, fidx);
-                            inds_p = buildFace(inds_p, xz, fidx, vxl_u8, topFace); //append face
-                            _blsr_u32(top_vis, top_vis);
-                        }
+                        uint64_t cur_col2 = __andn_u64(cur_col_orig >> 1, cur_col_orig) >> 1;
+                        MESH_LOOP(cur_col2, backFace);
 
-                        uint32_t btm_vis;
-                        _andn_u32(btm_col, cur_col_orig, btm_vis); //(btm_col ^ cur_col) & cur_col;
-                        while (btm_vis != 0)
-                        {
-                            uint32_t fidx;
-                            _tzcnt_u32(btm_vis, fidx);
-                            inds_p = buildFace(inds_p, xz, fidx, vxl_u8, btmFace); //append face
-                            _blsr_u32(btm_vis, btm_vis);
-                        }
+                        uint64_t top_vis = __andn_u64(top_col, cur_col_orig) >> 1; //(top_col ^ cur_col) & cur_col;
+                        MESH_LOOP(top_vis, btmFace);
 
-                        uint32_t left_vis;
-                        _andn_u32(left_col, cur_col_orig, left_vis); //(left_col ^ cur_col) & cur_col;
-                        while (left_vis != 0)
-                        {
-                            uint32_t fidx;
-                            _tzcnt_u32(left_vis, fidx);
-                            inds_p = buildFace(inds_p, xz, fidx, vxl_u8, leftFace); //append face
-                            _blsr_u32(left_vis, left_vis);
-                        }
+                        uint64_t btm_vis = __andn_u64(btm_col, cur_col_orig) >> 1; //(btm_col ^ cur_col) & cur_col;
+                        MESH_LOOP(btm_vis, topFace);
 
-                        uint32_t right_vis;
-                        _andn_u32(right_col, cur_col_orig, right_vis); //(right_col ^ cur_col) & cur_col;
-                        while (right_vis != 0)
-                        {
-                            uint32_t fidx;
-                            _tzcnt_u32(right_vis, fidx);
-                            inds_p = buildFace(inds_p, xz, fidx, vxl_u8, rightFace); //append face
-                            _blsr_u32(right_vis, right_vis);
-                        }
+                        uint64_t left_vis = __andn_u64(left_col, cur_col_orig) >> 1; //(left_col ^ cur_col) & cur_col;
+                        MESH_LOOP(left_vis, rightFace);
+
+                        uint64_t right_vis = __andn_u64(right_col, cur_col_orig) >> 1; //(right_col ^ cur_col) & cur_col;
+                        MESH_LOOP(right_vis, leftFace);
                     }
 
                     left_col = cur_col_orig;
-                    cur_col_orig = cur_col = right_col;
+                    cur_col_orig = right_col;
                 }
             else
                 cur_col_p += ChunkSide - 2;
@@ -285,17 +267,17 @@ uint32_t PVV::Chunk::GetCompiledLen()
         uint32_t expectedLen = 0;
 
         if (set_voxel_cnt == ChunkLen)
-            return 6 * 6;
+            return 0;
+        if (set_voxel_cnt == 0)
+            return 0;
 
-        for (uint32_t x = 0; x < (ChunkSide - 2); x++)
+        for (uint32_t x = 1 << 11; x < (ChunkSide - 1) << 11; x += 1 << 11)
         {
             auto left_col = *cur_col_p++;
             auto cur_col_orig = *cur_col_p++;
-            auto region = x / (RegionSize >> 11);
+            auto region = x / RegionSize;
 
-            if (regional_voxel_cnt[region] >= RegionSize)
-                expectedLen += 6;
-            else if (regional_voxel_cnt[region] > 0)
+            if (regional_voxel_cnt[region] > 0)
                 for (uint32_t z = 0; z < (ChunkSide - 2); z++)
                 {
                     auto right_col = *cur_col_p++;
@@ -304,26 +286,23 @@ uint32_t PVV::Chunk::GetCompiledLen()
                     {
                         auto top_col = *(cur_col_p - ChunkSide - 2); //top_col_p++;
                         auto btm_col = *(cur_col_p + ChunkSide - 2); //btm_col_p++;
-                        expectedLen += __popcntq(cur_col_orig);
 
-                        uint32_t cur_col2;
-                        _andn_u32(cur_col_orig >> 1, cur_col_orig, cur_col2);
+                        uint64_t cur_col = __andn_u64(cur_col_orig << 1, cur_col_orig) >> 1;
+                        expectedLen += __popcntq(cur_col);
+
+                        uint64_t cur_col2 = __andn_u64(cur_col_orig >> 1, cur_col_orig) >> 1;
                         expectedLen += __popcntq(cur_col2);
 
-                        uint32_t top_vis;
-                        _andn_u32(top_col, cur_col_orig, top_vis); //(top_col ^ cur_col) & cur_col;
+                        uint64_t top_vis = __andn_u64(top_col, cur_col_orig) >> 1; //(top_col ^ cur_col) & cur_col;
                         expectedLen += __popcntq(top_vis);
 
-                        uint32_t btm_vis;
-                        _andn_u32(btm_col, cur_col_orig, btm_vis); //(btm_col ^ cur_col) & cur_col;
+                        uint64_t btm_vis = __andn_u64(btm_col, cur_col_orig) >> 1; //(btm_col ^ cur_col) & cur_col;
                         expectedLen += __popcntq(btm_vis);
 
-                        uint32_t left_vis;
-                        _andn_u32(left_col, cur_col_orig, left_vis); //(left_col ^ cur_col) & cur_col;
+                        uint64_t left_vis = __andn_u64(left_col, cur_col_orig) >> 1; //(left_col ^ cur_col) & cur_col;
                         expectedLen += __popcntq(left_vis);
 
-                        uint32_t right_vis;
-                        _andn_u32(right_col, cur_col_orig, right_vis); //(right_col ^ cur_col) & cur_col;
+                        uint64_t right_vis = __andn_u64(right_col, cur_col_orig) >> 1; //(right_col ^ cur_col) & cur_col;
                         expectedLen += __popcntq(right_vis);
                     }
 
@@ -333,7 +312,6 @@ uint32_t PVV::Chunk::GetCompiledLen()
             else
                 cur_col_p += ChunkSide - 2;
         }
-
         return expectedLen * 6;
         break;
     }
@@ -382,6 +360,16 @@ void PVV::Chunk::Decompress()
         }
         codingScheme = ChunkCodingScheme::ByteRep;
     }
+}
+
+void PVV::Chunk::SetPosition(glm::ivec3 &pos)
+{
+    position = pos;
+}
+
+glm::ivec3 &PVV::Chunk::GetPosition()
+{
+    return position;
 }
 
 PVV::ChunkCodingScheme PVV::Chunk::GetCodingScheme()
