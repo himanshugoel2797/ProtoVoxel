@@ -20,6 +20,7 @@ namespace ProtoVoxel::Voxel
         static const int ChunkLayers = 64;
         static const int ChunkLen = ChunkSide * ChunkSide * ChunkLayers;
         static const int InternalVoxelLen = (ChunkSide - 2) * (ChunkSide - 2) * (ChunkLayers - 1);
+        static const int BorderVoxelLen = (ChunkSide * ChunkSide) * 2 + (ChunkSide * ChunkLayers) * 4;
         static const int RegionSize = 4096;
         static const int RegionCount = ChunkLen / RegionSize; //(32 * 32 * 32 / 4096)
         static const int RegionLayerCount = ChunkLayers / RegionCount;
@@ -29,7 +30,7 @@ namespace ProtoVoxel::Voxel
         ChunkCodingScheme codingScheme;
         int16_t allVal;
         uint32_t set_voxel_cnt;
-        uint32_t internal_voxel_cnt;
+        uint32_t border_voxel_cnt;
         uint16_t regional_voxel_cnt[RegionCount];
         uint64_t *vismasks;
         uint8_t *vxl_u8;

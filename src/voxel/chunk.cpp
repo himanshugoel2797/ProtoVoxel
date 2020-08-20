@@ -17,6 +17,7 @@ void PVV::Chunk::Initialize(ChunkMalloc *mem_parent)
     codingScheme = ChunkCodingScheme::SingleFull;
     allVal = -1;
     set_voxel_cnt = 0;
+    border_voxel_cnt = 0;
 }
 
 void PVV::Chunk::SetAll(uint16_t val)
@@ -60,6 +61,9 @@ void PVV::Chunk::SetSingle(uint8_t x, uint8_t y, uint8_t z, int16_t val)
                 mem_parent->CommitChunkRegion(vxl_u8, region);
             regional_voxel_cnt[region]++;
             set_voxel_cnt++;
+
+            if (x == 0 | y == 0 | z == 0 | x == ChunkSide - 1 | y == ChunkSide - 1 | z == ChunkSide - 1)
+                border_voxel_cnt++;
         }
         vxl_u8[idx] = val;
         if (rm_voxel)
@@ -68,6 +72,9 @@ void PVV::Chunk::SetSingle(uint8_t x, uint8_t y, uint8_t z, int16_t val)
             if (regional_voxel_cnt[region] == 0)
                 mem_parent->DecommitChunkBlock(vxl_u8, region);
             set_voxel_cnt--;
+
+            if (x == 0 | y == 0 | z == 0 | x == ChunkSide - 1 | y == ChunkSide - 1 | z == ChunkSide - 1)
+                border_voxel_cnt--;
         }
         break;
     }
@@ -163,19 +170,6 @@ static inline uint32_t *buildFace(uint32_t *inds, uint32_t xz, uint32_t y, uint8
     return inds + 6;
 }
 
-static inline uint32_t *buildFace_fullSlice(uint32_t *inds, uint32_t x, uint8_t *vxl_data)
-{
-    //6 faces of 6 vertices each
-    return inds + 6 * 6;
-}
-
-static inline uint32_t *buildFace_fullCube(uint32_t *inds, uint8_t *vxl_data)
-{
-    //6 faces of 6 vertices each
-    //Extract surface voxels to submit directly as data
-    return inds + 6 * 6;
-}
-
 void PVV::Chunk::Compile(uint32_t *inds_p)
 {
     switch (codingScheme)
@@ -186,11 +180,10 @@ void PVV::Chunk::Compile(uint32_t *inds_p)
         auto cur_col_p = visMask + ChunkSide;
         auto inds_orig = inds_p;
 
-        if (set_voxel_cnt == ChunkLen)
-        {
-            //Chunk is full and neighbors are full too, chunk is invisible
+        if (border_voxel_cnt == BorderVoxelLen) //Completely surrounded
             return;
-        }
+        if (set_voxel_cnt == ChunkLen) //Chunk is full and neighbors are full too, chunk is invisible
+            return;
         if (set_voxel_cnt == 0)
             return;
 
@@ -212,7 +205,6 @@ void PVV::Chunk::Compile(uint32_t *inds_p)
                         auto btm_col = *(cur_col_p + ChunkSide - 2); //btm_col_p++;
                         auto xz = z | x;
 
-#define STR(X) #X
 #define MESH_LOOP(col, face)                                \
     while (col != 0)                                        \
     {                                                       \
@@ -266,6 +258,8 @@ uint32_t PVV::Chunk::GetCompiledLen()
         auto cur_col_p = visMask + ChunkSide;
         uint32_t expectedLen = 0;
 
+        if (border_voxel_cnt == BorderVoxelLen)
+            return 0;
         if (set_voxel_cnt == ChunkLen)
             return 0;
         if (set_voxel_cnt == 0)
@@ -313,12 +307,11 @@ uint32_t PVV::Chunk::GetCompiledLen()
                 cur_col_p += ChunkSide - 2;
         }
         return expectedLen * 6;
-        break;
     }
     case ChunkCodingScheme::SingleFull:
     {
         //full cube, separate render path
-        break;
+        return 6 * 6;
     }
     }
     return -1;
@@ -344,6 +337,7 @@ void PVV::Chunk::Decompress()
         vxl_u8 = mem_parent->AllocChunkBlock();
         if (allVal != -1)
         {
+            border_voxel_cnt = BorderVoxelLen;
             set_voxel_cnt = ChunkLen;
             for (int i = 0; i < RegionCount; i++)
             {
@@ -354,6 +348,7 @@ void PVV::Chunk::Decompress()
         }
         else
         {
+            border_voxel_cnt = 0;
             set_voxel_cnt = 0;
             for (int i = 0; i < RegionCount; i++)
                 regional_voxel_cnt[i] = 0;
