@@ -307,12 +307,17 @@ void PVV::Chunk::Compile(uint32_t *inds_p)
                         auto btm_col = *(cur_col_p + ChunkSide - 2); //btm_col_p++;
                         auto xz = z | x;
 
-#define MESH_LOOP(col, face)                                \
-    while (col != 0)                                        \
-    {                                                       \
-        uint32_t fidx = _tzcnt_u64(col);                    \
-        bkts_p = buildFace(bkts_p, xz, fidx, vxl_u8, face); \
-        col = _blsr_u64(col);                               \
+#define MESH_LOOP(col, face)                                    \
+    if (col != 0)                                               \
+    {                                                           \
+        do                                                      \
+        {                                                       \
+            uint32_t fidx = _tzcnt_u64(col);                    \
+            bkts_p = buildFace(bkts_p, xz, fidx, vxl_u8, face); \
+            col = _blsr_u64(col);                               \
+        } while (col != 0);                                     \
+        inds_p = packFaces(buckets, bkts_p, inds_p, face);      \
+        bkts_p = buckets;                                       \
     }
 
 #define MESH_DIRECT_LOOP(col, face)                         \
@@ -331,23 +336,15 @@ void PVV::Chunk::Compile(uint32_t *inds_p)
 
                         uint64_t top_vis = __andn_u64(top_col, cur_col_orig) >> 1; //(top_col ^ cur_col) & cur_col;
                         MESH_LOOP(top_vis, btmFace);
-                        inds_p = packFaces(buckets, bkts_p, inds_p, btmFace);
-                        bkts_p = buckets;
 
                         uint64_t btm_vis = __andn_u64(btm_col, cur_col_orig) >> 1; //(btm_col ^ cur_col) & cur_col;
                         MESH_LOOP(btm_vis, topFace);
-                        inds_p = packFaces(buckets, bkts_p, inds_p, topFace);
-                        bkts_p = buckets;
 
                         uint64_t left_vis = __andn_u64(left_col, cur_col_orig) >> 1; //(left_col ^ cur_col) & cur_col;
                         MESH_LOOP(left_vis, rightFace);
-                        inds_p = packFaces(buckets, bkts_p, inds_p, rightFace);
-                        bkts_p = buckets;
 
                         uint64_t right_vis = __andn_u64(right_col, cur_col_orig) >> 1; //(right_col ^ cur_col) & cur_col;
                         MESH_LOOP(right_vis, leftFace);
-                        inds_p = packFaces(buckets, bkts_p, inds_p, leftFace);
-                        bkts_p = buckets;
                     }
 
                     left_col = cur_col_orig;
