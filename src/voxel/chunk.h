@@ -24,18 +24,7 @@ namespace ProtoVoxel::Voxel
         static const int RegionSize = 4096;
         static const int RegionCount = ChunkLen / RegionSize; //(32 * 32 * 32 / 4096)
         static const int RegionLayerCount = ChunkLayers / RegionCount;
-
-    private:
-        ChunkMalloc *mem_parent;
-        ChunkCodingScheme codingScheme;
-        int16_t allVal;
-        uint32_t set_voxel_cnt;
-        uint32_t border_voxel_cnt;
-        uint16_t regional_voxel_cnt[RegionCount];
         uint64_t *vismasks;
-        uint8_t *vxl_u8;
-        glm::ivec3 position;
-
         static inline uint32_t Encode(uint8_t x, uint8_t y, uint8_t z)
         {
             return y | ((uint32_t)z << 6) | ((uint32_t)x << 11);
@@ -50,6 +39,16 @@ namespace ProtoVoxel::Voxel
         {
             return y | (xz << 6);
         }
+
+    private:
+        ChunkMalloc *mem_parent;
+        ChunkCodingScheme codingScheme;
+        int16_t allVal;
+        uint32_t set_voxel_cnt;
+        uint32_t border_voxel_cnt;
+        uint16_t regional_voxel_cnt[RegionCount];
+        uint8_t *vxl_u8;
+        glm::ivec3 position;
 
     public:
         Chunk();

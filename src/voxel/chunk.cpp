@@ -39,7 +39,6 @@ void PVV::Chunk::SetAll(uint16_t val)
     }
 }
 
-#include <iostream>
 void PVV::Chunk::SetSingle(uint8_t x, uint8_t y, uint8_t z, int16_t val)
 {
     switch (codingScheme)
@@ -216,7 +215,7 @@ void PVV::Chunk::Compile(uint32_t *inds_p)
                         uint64_t cur_col = __andn_u64(cur_col_orig << 1, cur_col_orig) >> 1;
                         MESH_LOOP(cur_col, frontFace);
 
-                        uint64_t cur_col2 = __andn_u64(cur_col_orig >> 1, cur_col_orig) >> 1;
+                        uint64_t cur_col2 = __andn_u64((int64_t)cur_col_orig >> 1, cur_col_orig) >> 1;
                         MESH_LOOP(cur_col2, backFace);
 
                         uint64_t top_vis = __andn_u64(top_col, cur_col_orig) >> 1; //(top_col ^ cur_col) & cur_col;
@@ -284,7 +283,7 @@ uint32_t PVV::Chunk::GetCompiledLen()
                         uint64_t cur_col = __andn_u64(cur_col_orig << 1, cur_col_orig) >> 1;
                         expectedLen += __popcntq(cur_col);
 
-                        uint64_t cur_col2 = __andn_u64(cur_col_orig >> 1, cur_col_orig) >> 1;
+                        uint64_t cur_col2 = __andn_u64((int64_t)cur_col_orig >> 1, cur_col_orig) >> 1;
                         expectedLen += __popcntq(cur_col2);
 
                         uint64_t top_vis = __andn_u64(top_col, cur_col_orig) >> 1; //(top_col ^ cur_col) & cur_col;
