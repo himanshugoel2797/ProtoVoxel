@@ -54,7 +54,6 @@ public:
         for (int i = 0; i < 1; i++)
         {
             chnks[i].Initialize(&chunk_mem);
-
             for (int x = 0; x < 32; x++)
                 for (int z = 0; z < 32; z++)
                     for (int y = 0; y < 64; y++)
@@ -63,7 +62,7 @@ public:
                         //uint8_t x = rand() % 32;
                         //uint8_t y = rand() % 64;
                         //uint8_t z = rand() % 32;
-                        auto d = noise.noise3D_0_1(x * 0.012345, y * 0.012345, z * 0.012345);
+                        auto d = noise.noise3D_0_1(x * 0.012345, z * 0.012345, y * 0.012345);
                         if (d > 0.5)
                             chnks[i].SetSingle(x, y, z, (int)(d * 10));
                     }
@@ -199,7 +198,7 @@ void main(){
     {
         PVG::GraphicsDevice::BindGraphicsPipeline(pipeline);
         PVG::GraphicsDevice::ClearAll();
-        //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         glCullFace(GL_BACK);
         glEnable(GL_DEPTH_TEST);
         //glEnable(GL_CULL_FACE);

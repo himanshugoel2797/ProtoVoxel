@@ -18,8 +18,6 @@ void PVV::Chunk::Initialize(ChunkMalloc *mem_parent)
     allVal = -1;
     set_voxel_cnt = 0;
     border_voxel_cnt = 0;
-
-    buckets = new uint32_t[64];
 }
 
 void PVV::Chunk::SetAll(uint16_t val)
@@ -101,10 +99,8 @@ const uint32_t x_off = 19;
 const uint32_t z_off = 14;
 
 #include <iostream>
-static inline uint32_t *buildFace(uint32_t *inds, uint32_t xz, uint32_t y, uint8_t *vxl_data, uint32_t face)
+static inline uint32_t *buildFace(uint32_t *inds, uint32_t xyz, uint8_t mat, uint32_t face)
 {
-    auto xyz = xz | y;
-    auto mat = vxl_data[xyz + 1];
     uint32_t x_axis;
     uint32_t y_axis;
     uint32_t cmn_axis;
@@ -171,10 +167,8 @@ static inline uint32_t *buildFace(uint32_t *inds, uint32_t xz, uint32_t y, uint8
     return inds + 6;
 }
 
-static inline uint32_t *buildFace_compact(uint32_t *inds, uint32_t xz, uint32_t y, uint8_t *vxl_data, uint32_t face)
+static inline uint32_t *packFaces_c(uint32_t start_xyz, uint32_t end_xyz, uint8_t mat, uint32_t *inds, uint32_t face)
 {
-    auto xyz = xz | y;
-    auto mat = vxl_data[xyz + 1];
     uint32_t x_axis;
     uint32_t y_axis;
     uint32_t cmn_axis;
@@ -191,16 +185,6 @@ static inline uint32_t *buildFace_compact(uint32_t *inds, uint32_t xz, uint32_t 
         x_axis = (1 << x_off); //x
         y_axis = (1 << y_off); //y
         break;
-    case backFace:
-        cmn_axis = (1 << y_off); //y
-        x_axis = (1 << x_off);   //x
-        y_axis = (1 << z_off);   //z
-        break;
-    case frontFace:
-        cmn_axis = 0;
-        x_axis = (1 << x_off); //x
-        y_axis = (1 << z_off); //z
-        break;
     case topFace:
         cmn_axis = (1 << x_off); //x
         x_axis = (1 << y_off);   //y
@@ -213,91 +197,37 @@ static inline uint32_t *buildFace_compact(uint32_t *inds, uint32_t xz, uint32_t 
         break;
     }
 
-    auto base_v = ((xyz << 8) | mat) + cmn_axis;
-    inds[0] = base_v;
-    return inds + 1;
-}
+    auto base_v_end = ((end_xyz << 8) | mat) + cmn_axis;
+    auto base_v = ((start_xyz << 8) | mat) + cmn_axis;
 
-static inline uint32_t *packFaces(uint32_t *start, uint32_t *end, uint32_t *inds, uint32_t face)
-{
-    //read the first face definition
-    uint32_t cur_crn = start[0];
-    uint32_t cur_start_base = 0;
-    uint32_t crn_cntr = 1;
-    uint32_t len = end - start;
-
-    const uint32_t addend = 1 << y_off;
-
-    for (; crn_cntr < len; crn_cntr++)
+    switch (face)
     {
-        if ((start[crn_cntr] ^ cur_crn) & ~0x1f00)
-        {
-            switch (face)
-            {
-            case rightFace:
-                inds[0] = inds[3] = start[cur_start_base];
-                inds[1] = inds[5] = start[(crn_cntr - 1)] + (1 << x_off) + (1 << y_off);
-                inds[2] = start[cur_start_base] + (1 << x_off);
-                inds[4] = start[(crn_cntr - 1)] + (1 << y_off);
-                break;
-            case btmFace:
-                inds[0] = inds[3] = start[cur_start_base];
-                inds[1] = inds[5] = start[(crn_cntr - 1)] + (1 << y_off) + (1 << z_off);
-                inds[2] = start[(crn_cntr - 1)] + (1 << y_off);
-                inds[4] = start[cur_start_base] + (1 << z_off);
-                break;
-            case topFace:
-                inds[0] = inds[3] = start[cur_start_base];
-                inds[4] = inds[2] = start[(crn_cntr - 1)] + (1 << y_off) + (1 << z_off);
-                inds[1] = start[(crn_cntr - 1)] + (1 << y_off);
-                inds[5] = start[cur_start_base] + (1 << z_off);
-                break;
-            case leftFace:
-                inds[0] = inds[3] = start[cur_start_base];
-                inds[4] = inds[2] = start[(crn_cntr - 1)] + (1 << x_off) + (1 << y_off);
-                inds[1] = start[cur_start_base] + (1 << x_off);
-                inds[5] = start[(crn_cntr - 1)] + (1 << y_off);
-                break;
-            }
-            //emit and restart process
-            inds += 6;
-            cur_start_base = crn_cntr;
-        }
-        cur_crn = start[crn_cntr];
+    case rightFace:
+        inds[3] = inds[0] = base_v;
+        inds[5] = inds[1] = base_v_end + x_axis + y_axis;
+        inds[2] = base_v + x_axis;
+        inds[4] = base_v_end + y_axis;
+        break;
+    case btmFace:
+        inds[3] = inds[0] = base_v;
+        inds[5] = inds[1] = base_v_end + x_axis + y_axis;
+        inds[2] = base_v_end + x_axis;
+        inds[4] = base_v + y_axis;
+        break;
+    case topFace:
+        inds[3] = inds[0] = base_v;
+        inds[2] = inds[4] = base_v_end + x_axis + y_axis;
+        inds[1] = base_v_end + x_axis;
+        inds[5] = base_v + y_axis;
+        break;
+    case leftFace:
+        inds[3] = inds[0] = base_v;
+        inds[4] = inds[2] = base_v_end + x_axis + y_axis;
+        inds[1] = base_v + x_axis;
+        inds[5] = base_v_end + y_axis;
+        break;
     }
-    if (cur_start_base < len)
-    {
-        switch (face)
-        {
-        case rightFace:
-            inds[0] = inds[3] = start[cur_start_base];
-            inds[1] = inds[5] = start[(crn_cntr - 1)] + (1 << x_off) + (1 << y_off);
-            inds[2] = start[cur_start_base] + (1 << x_off);
-            inds[4] = start[(crn_cntr - 1)] + (1 << y_off);
-            break;
-        case btmFace:
-            inds[0] = inds[3] = start[cur_start_base];
-            inds[1] = inds[5] = start[(crn_cntr - 1)] + (1 << y_off) + (1 << z_off);
-            inds[2] = start[(crn_cntr - 1)] + (1 << y_off);
-            inds[4] = start[cur_start_base] + (1 << z_off);
-            break;
-        case topFace:
-            inds[0] = inds[3] = start[cur_start_base];
-            inds[4] = inds[2] = start[(crn_cntr - 1)] + (1 << y_off) + (1 << z_off);
-            inds[1] = start[(crn_cntr - 1)] + (1 << y_off);
-            inds[5] = start[cur_start_base] + (1 << z_off);
-            break;
-        case leftFace:
-            inds[0] = inds[3] = start[cur_start_base];
-            inds[4] = inds[2] = start[(crn_cntr - 1)] + (1 << x_off) + (1 << y_off);
-            inds[1] = start[cur_start_base] + (1 << x_off);
-            inds[5] = start[(crn_cntr - 1)] + (1 << y_off);
-            break;
-        }
-
-        inds += 6;
-    }
-    return inds;
+    return inds + 6;
 }
 
 void PVV::Chunk::Compile(uint32_t *inds_p)
@@ -306,6 +236,7 @@ void PVV::Chunk::Compile(uint32_t *inds_p)
     {
     case ChunkCodingScheme::ByteRep:
     {
+        auto vxl_u8_sh = vxl_u8 + 1;
         auto visMask = vismasks;
         auto cur_col_p = visMask + ChunkSide;
         auto inds_orig = inds_p;
@@ -317,9 +248,6 @@ void PVV::Chunk::Compile(uint32_t *inds_p)
         if (set_voxel_cnt == 0)
             return;
 
-        uint32_t *bkts_p = buckets;
-
-        uint32_t loop_cnt = 0;
         for (uint32_t x = 1 << 11; x < (ChunkSide - 1) << 11; x += 1 << 11)
         {
             auto left_col = *cur_col_p++;
@@ -337,26 +265,43 @@ void PVV::Chunk::Compile(uint32_t *inds_p)
                         auto btm_col = *(cur_col_p + ChunkSide - 2); //btm_col_p++;
                         auto xz = z | x;
 
-#define MESH_LOOP(col, face)                                            \
-    if (col != 0)                                                       \
-    {                                                                   \
-        do                                                              \
-        {                                                               \
-            uint32_t fidx = _tzcnt_u64(col);                            \
-            bkts_p = buildFace_compact(bkts_p, xz, fidx, vxl_u8, face); \
-            col = _blsr_u64(col);                                       \
-        } while (col != 0);                                             \
-        inds_p = packFaces(buckets, bkts_p, inds_p, face);              \
-        bkts_p = buckets;                                               \
+#define MESH_LOOP(col, face)                                                       \
+    {                                                                              \
+        if (col != 0)                                                              \
+        {                                                                          \
+            uint32_t start_fidx = xz | _tzcnt_u64(col);                            \
+            uint32_t fidx = start_fidx;                                            \
+            uint8_t cur_mat = vxl_u8_sh[fidx];                                     \
+            uint32_t next_fidx;                                                    \
+            uint8_t next_mat;                                                      \
+            uint64_t next_col;                                                     \
+            do                                                                     \
+            {                                                                      \
+                next_col = _blsr_u64(col);                                         \
+                next_fidx = xz | _tzcnt_u64(next_col);                             \
+                next_mat = vxl_u8_sh[next_fidx];                                   \
+                if ((cur_mat != next_mat) | ((fidx + 1) != next_fidx))             \
+                {                                                                  \
+                    inds_p = packFaces_c(start_fidx, fidx, cur_mat, inds_p, face); \
+                    start_fidx = next_fidx;                                        \
+                }                                                                  \
+                col = next_col;                                                    \
+                fidx = next_fidx;                                                  \
+                cur_mat = next_mat;                                                \
+            } while (col != 0);                                                    \
+        }                                                                          \
     }
 
-#define MESH_DIRECT_LOOP(col, face)                         \
-    while (col != 0)                                        \
-    {                                                       \
-        uint32_t fidx = _tzcnt_u64(col);                    \
-        inds_p = buildFace(inds_p, xz, fidx, vxl_u8, face); \
-        col = _blsr_u64(col);                               \
+#define MESH_DIRECT_LOOP(col, face)                              \
+    while (col != 0)                                             \
+    {                                                            \
+        uint32_t fidx = xz | _tzcnt_u64(col);                    \
+        col = _blsr_u64(col);                                    \
+        inds_p = buildFace(inds_p, fidx, vxl_u8_sh[fidx], face); \
     }
+
+                        //RLE encode the current sequence of 64 voxels, use them as hints for further speeding up the face build
+                        //
 
                         uint64_t cur_col = __andn_u64(cur_col_orig << 1, cur_col_orig) >> 1;
                         MESH_DIRECT_LOOP(cur_col, frontFace);
@@ -525,6 +470,4 @@ PVV::Chunk::~Chunk()
 
     if (vismasks != nullptr)
         delete[] vismasks;
-
-    delete[] buckets;
 }
