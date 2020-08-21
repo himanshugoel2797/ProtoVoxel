@@ -76,76 +76,123 @@ public:
             auto raw_Data = (uint8_t *)chnks[i].GetRawData();
             auto raw_Data_u64 = (uint64_t *)chnks[i].GetRawData();
 
-            uint8_t comp_data_space[32768];
-            uint8_t comp_data_space2[32768];
+            uint8_t comp_data_space[32768] = {0};
             int rle_len = 0;
             int rle_len_packed = 0;
-            int chnk_len = 32 * 32 * 64;
+            const int chnk_len = 32 * 32 * 64;
             {
                 auto start = std::chrono::high_resolution_clock::now().time_since_epoch().count();
                 for (int q = 0; q < 10000; q++)
                 {
                     rle_len = 0;
 
-                    uint64_t cur_val = raw_Data_u64[1];
-                    uint64_t next_val = raw_Data_u64[1];
-                    for (int j = 0; j < chnk_len / sizeof(uint64_t); j++)
+                    uint64_t cur_val = 0;
+                    uint64_t next_val = raw_Data_u64[0];
+                    uint32_t c_runLen = 0;
+                    uint32_t c_val = next_val & 0xff;
+                    uint8_t *comp_ptr = (uint8_t *)comp_data_space;
+                    for (int j = 1; j < chnk_len / sizeof(uint64_t); j++)
                     {
                         cur_val = next_val;
-                        next_val = (j < (chnk_len / sizeof(uint64_t)) - 1) ? raw_Data_u64[j + 1] : 0;
+                        next_val = raw_Data_u64[j];
                         uint64_t cur_val_shifted = (cur_val >> 8) | (next_val << 56);
-
                         uint64_t equality_mask = cur_val_shifted ^ cur_val;
                         //count matched parts
-
-                        for (int32_t avail_bytes = sizeof(uint64_t); avail_bytes > 0;)
+                        if (equality_mask == 0)
                         {
-                            uint8_t proc_byte = cur_val & 0xff;
-                            int32_t matched_bytes = __tzcnt_u64(equality_mask) / 8;
-                            matched_bytes++;
-                            if (matched_bytes > avail_bytes)
-                                matched_bytes = avail_bytes;
+                            uint8_t proc_byte = cur_val;
+                            if (c_val == proc_byte && c_runLen + 64 <= 256 * 8)
+                                c_runLen += 64;
+                            else
+                            {
+                                *(comp_ptr++) = c_runLen / 8 - 1;
+                                *(comp_ptr++) = c_val;
 
-                            comp_data_space[rle_len++] = matched_bytes;
-                            comp_data_space[rle_len++] = proc_byte;
-
-                            cur_val = cur_val >> (matched_bytes * 8);
-                            equality_mask = equality_mask >> (matched_bytes * 8);
-                            equality_mask &= ~0xff;
-
-                            avail_bytes -= matched_bytes;
-                        }
-                    }
-
-                    rle_len_packed = 0;
-                    uint32_t i_runLen = comp_data_space[0];
-                    auto i_val = comp_data_space[1];
-                    for (int j = 2; j < rle_len; j += 2)
-                    {
-                        auto runlen = comp_data_space[j];
-                        auto val = comp_data_space[j + 1];
-
-                        if (i_val == val && i_runLen + runlen <= 256)
-                        {
-                            i_runLen += runlen;
+                                c_runLen = 64;
+                                c_val = proc_byte;
+                            }
                         }
                         else
-                        {
-                            comp_data_space2[rle_len_packed++] = i_runLen - 1;
-                            comp_data_space2[rle_len_packed++] = i_val;
+                            for (int32_t avail_bits = 64; avail_bits != 0;)
+                            {
+                                uint8_t proc_byte = cur_val;
+                                int32_t matched_bits = __tzcnt_u64(equality_mask) & ~7;
+                                matched_bits += 8;
+                                if (matched_bits > avail_bits)
+                                    matched_bits = avail_bits;
 
-                            i_runLen = runlen;
-                            i_val = val;
+                                if (c_val == proc_byte && c_runLen + matched_bits <= 256 * 8)
+                                    c_runLen += matched_bits;
+                                else
+                                {
+                                    *(comp_ptr++) = c_runLen / 8 - 1;
+                                    *(comp_ptr++) = c_val;
+
+                                    c_runLen = matched_bits;
+                                    c_val = proc_byte;
+                                }
+
+                                avail_bits -= matched_bits;
+                                cur_val >>= matched_bits;
+                                equality_mask >>= matched_bits;
+                                equality_mask &= ~0xff;
+                            }
+                    }
+
+                    cur_val = next_val;
+                    uint64_t cur_val_shifted = (cur_val >> 8);
+                    uint64_t equality_mask = cur_val_shifted ^ cur_val;
+                    //count matched parts
+                    if (equality_mask == 0)
+                    {
+                        uint8_t proc_byte = cur_val;
+                        if (c_val == proc_byte && c_runLen + 64 <= 256 * 8)
+                            c_runLen += 64;
+                        else
+                        {
+                            *(comp_ptr++) = c_runLen / 8 - 1;
+                            *(comp_ptr++) = c_val;
+
+                            //last write, no need to save values further
+                            c_runLen = 64;
+                            c_val = proc_byte;
                         }
                     }
-                    if (i_runLen != 0)
+                    else
+                        for (int32_t avail_bits = 64; avail_bits != 0;)
+                        {
+                            uint8_t proc_byte = cur_val;
+                            int32_t matched_bits = __tzcnt_u64(equality_mask) & ~7;
+                            matched_bits += 8;
+                            if (matched_bits > avail_bits)
+                                matched_bits = avail_bits;
+
+                            if (c_val == proc_byte && c_runLen + matched_bits <= 256 * 8)
+                                c_runLen += matched_bits;
+                            else
+                            {
+                                *(comp_ptr++) = c_runLen / 8 - 1;
+                                *(comp_ptr++) = c_val;
+
+                                c_runLen = matched_bits;
+                                c_val = proc_byte;
+                            }
+
+                            avail_bits -= matched_bits;
+                            cur_val >>= matched_bits;
+                            equality_mask >>= matched_bits;
+                            equality_mask &= ~0xff;
+                        }
+                    if (c_runLen != 0)
                     {
-                        comp_data_space2[rle_len_packed++] = i_runLen - 1;
-                        comp_data_space2[rle_len_packed++] = i_val;
+                        *(comp_ptr++) = c_runLen / 8 - 1;
+                        *(comp_ptr++) = c_val;
                     }
+
+                    rle_len = comp_ptr - comp_data_space;
                 }
                 auto stop = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-                std::cout << "Custom RLE Len: " << rle_len_packed << std::endl;
+                std::cout << "Custom RLE Len: " << rle_len << std::endl;
                 std::cout << "Set Voxel Count: " << chnks[i].GetVoxelCount() << std::endl;
                 std::cout << "Encode Time Taken: " << (stop - start) / (1000.0 * 10000) << "us" << std::endl;
             }
@@ -154,51 +201,61 @@ public:
                 uint8_t decomp_pool[64 * 1024];
                 for (int q = 0; q < 10000; q++)
                 {
-                    uint8_t *tmp_ptr = decomp_pool;
-                    for (int j = 0; j < rle_len_packed; j += 2)
-                    {
-                        int32_t len = comp_data_space2[j];
-                        uint8_t v = comp_data_space2[j + 1];
+                    uint8_t *tmp_ptr = (uint8_t *)decomp_pool;
+                    uint64_t *comp_ptr = (uint64_t *)comp_data_space;
+                    uint32_t rle_len2 = (rle_len + 7) / 8;
+                    uint32_t iter = 0;
 
-                        if (len % 8 == 0)
-                        {
-                            uint64_t *tmp_ptr_64 = (uint64_t *)tmp_ptr;
-                            uint64_t v_64 = v * 0x0101010101010101;
-                            len /= 8;
-                            while (len-- >= 0)
-                                *(tmp_ptr_64) = v_64;
-                        }
-                        else if (len % 4 == 0)
-                        {
-                            uint32_t *tmp_ptr_32 = (uint32_t *)tmp_ptr;
-                            uint32_t v_32 = v * 0x01010101;
-                            len /= 4;
-                            while (len-- >= 0)
-                                *(tmp_ptr_32) = v_32;
-                        }
-                        else if (len % 2 == 0)
-                        {
-                            uint16_t *tmp_ptr_16 = (uint16_t *)tmp_ptr;
-                            uint16_t v_16 = v * 0x0101;
-                            len /= 2;
-                            while (len-- >= 0)
-                                *(tmp_ptr_16) = v_16;
-                        }
-                        else
-                        {
-                            while (len-- >= 0)
-                                *(tmp_ptr++) = v;
-                        }
+                    for (int j = 0; j < rle_len2; j++)
+                    {
+                        uint64_t v_net = *(comp_ptr++);
+
+                        int32_t len;
+                        uint8_t v;
+                        uint64_t v_64;
+                        uint64_t *tmp_ptr_64;
+                        uint64_t mask;
+                        uint64_t v_64_s;
+
+                        //Align the value being written so the pointer can be aligned
+                        //std::cout << "len: " << std::dec << len << " v: " << v << " iter: " << iter << std::hex << " v_64_s: " << v_64_s << std::endl;
+#define INNER_LOOP(off)                              \
+    len = ((v_net >> (off * 8)) & 0xff) + 1;         \
+    v = (v_net >> ((off + 1) * 8)) & 0xff;           \
+    v_64 = v * 0x0101010101010101;                   \
+    tmp_ptr_64 = (uint64_t *)&tmp_ptr[iter & ~7];    \
+    mask = 0xffffffffffffffff << ((iter & 0x7) * 8); \
+    v_64_s = v_64 & mask;                            \
+    v_64_s |= (*tmp_ptr_64) & ~mask;                 \
+    *(tmp_ptr_64++) = v_64_s;                        \
+    iter += len;                                     \
+    len = (len + 7) / 8;                             \
+    while (len-- > 0)                                \
+        *(tmp_ptr_64++) = v_64;
+
+                        INNER_LOOP(0)
+                        INNER_LOOP(2)
+                        INNER_LOOP(4)
+                        INNER_LOOP(6)
                     }
+
+                    //for (int j = 0; j < 64 * 1024; j++)
+                    //    if (decomp_pool[j] != raw_Data[j])
+                    //    {
+                    //        std::cout << "Not matched at " << j << " Value found decomp[j]: " << (int)decomp_pool[j] << "\r\n";
+                    //        break;
+                    //    }
                 }
                 auto stop = std::chrono::high_resolution_clock::now().time_since_epoch().count();
                 std::cout << "Decode Time Taken: " << (stop - start) / (1000.0 * 10000) << "us" << std::endl;
             }
 
+            //std::cout << __bextr_u64(0x0123456789abcdef, 0x808) << std::endl;
+
             auto fi = fopen("chnk.bin", "wb");
             //fwrite(raw_Data_vis, 1, 4096, fi);
             //fwrite(raw_Data, 1, 32 * 32 * 64, fi);
-            fwrite(comp_data_space2, 1, rle_len_packed, fi);
+            fwrite(comp_data_space, 1, rle_len, fi);
             fclose(fi);
             fi = fopen("chnk_raw.bin", "wb");
             //fwrite(raw_Data_vis, 1, 4096, fi);
