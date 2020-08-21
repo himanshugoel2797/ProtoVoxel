@@ -202,7 +202,7 @@ void main(){
         //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         glCullFace(GL_BACK);
         glEnable(GL_DEPTH_TEST);
-        glEnable(GL_CULL_FACE);
+        //glEnable(GL_CULL_FACE);
         PVG::GraphicsDevice::MulitDrawElementsIndirectCount(PVG::Topology::Triangles, PVG::IndexType::UInt, 16, 0, 0, draw_count);
 
         glDisable(GL_DEPTH_TEST);

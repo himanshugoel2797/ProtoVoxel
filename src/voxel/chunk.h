@@ -44,7 +44,7 @@ namespace ProtoVoxel::Voxel
         ChunkMalloc *mem_parent;
         ChunkCodingScheme codingScheme;
         int16_t allVal;
-        uint32_t *buckets[4];
+        uint32_t *buckets;
         uint32_t set_voxel_cnt;
         uint32_t border_voxel_cnt;
         uint16_t regional_voxel_cnt[RegionCount];
