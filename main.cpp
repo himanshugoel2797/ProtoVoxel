@@ -69,199 +69,10 @@ public:
                     }
             //chnks[i].SetSingle(0, 1, 1, 1);
             //chnks[i].SetSingle(1, 0, 1, 1);
-            //chnks[i].SetSingle(1, 1, 0, 1);
             //chnks[i].SetSingle(1, 1, 1, 1);
-
-            auto raw_Data_vis = (uint64_t *)chnks[i].vismasks;
-            auto raw_Data = (uint8_t *)chnks[i].GetRawData();
-            auto raw_Data_u64 = (uint64_t *)chnks[i].GetRawData();
-
-            uint8_t comp_data_space[32768] = {0};
-            int rle_len = 0;
-            int rle_len_packed = 0;
-            const int chnk_len = 32 * 32 * 64;
-            {
-                auto start = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-                for (int q = 0; q < 10000; q++)
-                {
-                    rle_len = 0;
-
-                    uint64_t cur_val = 0;
-                    uint64_t next_val = raw_Data_u64[0];
-                    uint32_t c_runLen = 0;
-                    uint32_t c_val = next_val & 0xff;
-                    uint8_t *comp_ptr = (uint8_t *)comp_data_space;
-                    for (int j = 1; j < chnk_len / sizeof(uint64_t); j++)
-                    {
-                        cur_val = next_val;
-                        next_val = raw_Data_u64[j];
-                        uint64_t cur_val_shifted = (cur_val >> 8) | (next_val << 56);
-                        uint64_t equality_mask = cur_val_shifted ^ cur_val;
-                        //count matched parts
-                        if (equality_mask == 0)
-                        {
-                            uint8_t proc_byte = cur_val;
-                            if (c_val == proc_byte && c_runLen + 64 <= 256 * 8)
-                                c_runLen += 64;
-                            else
-                            {
-                                *(comp_ptr++) = c_runLen / 8 - 1;
-                                *(comp_ptr++) = c_val;
-
-                                c_runLen = 64;
-                                c_val = proc_byte;
-                            }
-                        }
-                        else
-                            for (int32_t avail_bits = 64; avail_bits != 0;)
-                            {
-                                uint8_t proc_byte = cur_val;
-                                int32_t matched_bits = __tzcnt_u64(equality_mask) & ~7;
-                                matched_bits += 8;
-                                if (matched_bits > avail_bits)
-                                    matched_bits = avail_bits;
-
-                                if (c_val == proc_byte && c_runLen + matched_bits <= 256 * 8)
-                                    c_runLen += matched_bits;
-                                else
-                                {
-                                    *(comp_ptr++) = c_runLen / 8 - 1;
-                                    *(comp_ptr++) = c_val;
-
-                                    c_runLen = matched_bits;
-                                    c_val = proc_byte;
-                                }
-
-                                avail_bits -= matched_bits;
-                                cur_val >>= matched_bits;
-                                equality_mask >>= matched_bits;
-                                equality_mask &= ~0xff;
-                            }
-                    }
-
-                    cur_val = next_val;
-                    uint64_t cur_val_shifted = (cur_val >> 8);
-                    uint64_t equality_mask = cur_val_shifted ^ cur_val;
-                    //count matched parts
-                    if (equality_mask == 0)
-                    {
-                        uint8_t proc_byte = cur_val;
-                        if (c_val == proc_byte && c_runLen + 64 <= 256 * 8)
-                            c_runLen += 64;
-                        else
-                        {
-                            *(comp_ptr++) = c_runLen / 8 - 1;
-                            *(comp_ptr++) = c_val;
-
-                            //last write, no need to save values further
-                            c_runLen = 64;
-                            c_val = proc_byte;
-                        }
-                    }
-                    else
-                        for (int32_t avail_bits = 64; avail_bits != 0;)
-                        {
-                            uint8_t proc_byte = cur_val;
-                            int32_t matched_bits = __tzcnt_u64(equality_mask) & ~7;
-                            matched_bits += 8;
-                            if (matched_bits > avail_bits)
-                                matched_bits = avail_bits;
-
-                            if (c_val == proc_byte && c_runLen + matched_bits <= 256 * 8)
-                                c_runLen += matched_bits;
-                            else
-                            {
-                                *(comp_ptr++) = c_runLen / 8 - 1;
-                                *(comp_ptr++) = c_val;
-
-                                c_runLen = matched_bits;
-                                c_val = proc_byte;
-                            }
-
-                            avail_bits -= matched_bits;
-                            cur_val >>= matched_bits;
-                            equality_mask >>= matched_bits;
-                            equality_mask &= ~0xff;
-                        }
-                    if (c_runLen != 0)
-                    {
-                        *(comp_ptr++) = c_runLen / 8 - 1;
-                        *(comp_ptr++) = c_val;
-                    }
-
-                    rle_len = comp_ptr - comp_data_space;
-                }
-                auto stop = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-                std::cout << "Custom RLE Len: " << rle_len << std::endl;
-                std::cout << "Set Voxel Count: " << chnks[i].GetVoxelCount() << std::endl;
-                std::cout << "Encode Time Taken: " << (stop - start) / (1000.0 * 10000) << "us" << std::endl;
-            }
-            {
-                auto start = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-                uint8_t decomp_pool[64 * 1024];
-                for (int q = 0; q < 10000; q++)
-                {
-                    uint8_t *tmp_ptr = (uint8_t *)decomp_pool;
-                    uint64_t *comp_ptr = (uint64_t *)comp_data_space;
-                    uint32_t rle_len2 = (rle_len + 7) / 8;
-                    uint32_t iter = 0;
-
-                    for (int j = 0; j < rle_len2; j++)
-                    {
-                        uint64_t v_net = *(comp_ptr++);
-
-                        int32_t len;
-                        uint8_t v;
-                        uint64_t v_64;
-                        uint64_t *tmp_ptr_64;
-                        uint64_t mask;
-                        uint64_t v_64_s;
-
-                        //Align the value being written so the pointer can be aligned
-                        //std::cout << "len: " << std::dec << len << " v: " << v << " iter: " << iter << std::hex << " v_64_s: " << v_64_s << std::endl;
-#define INNER_LOOP(off)                              \
-    len = ((v_net >> (off * 8)) & 0xff) + 1;         \
-    v = (v_net >> ((off + 1) * 8)) & 0xff;           \
-    v_64 = v * 0x0101010101010101;                   \
-    tmp_ptr_64 = (uint64_t *)&tmp_ptr[iter & ~7];    \
-    mask = 0xffffffffffffffff << ((iter & 0x7) * 8); \
-    v_64_s = v_64 & mask;                            \
-    v_64_s |= (*tmp_ptr_64) & ~mask;                 \
-    *(tmp_ptr_64++) = v_64_s;                        \
-    iter += len;                                     \
-    len = (len + 7) / 8;                             \
-    while (len-- > 0)                                \
-        *(tmp_ptr_64++) = v_64;
-
-                        INNER_LOOP(0)
-                        INNER_LOOP(2)
-                        INNER_LOOP(4)
-                        INNER_LOOP(6)
-                    }
-
-                    //for (int j = 0; j < 64 * 1024; j++)
-                    //    if (decomp_pool[j] != raw_Data[j])
-                    //    {
-                    //        std::cout << "Not matched at " << j << " Value found decomp[j]: " << (int)decomp_pool[j] << "\r\n";
-                    //        break;
-                    //    }
-                }
-                auto stop = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-                std::cout << "Decode Time Taken: " << (stop - start) / (1000.0 * 10000) << "us" << std::endl;
-            }
-
-            //std::cout << __bextr_u64(0x0123456789abcdef, 0x808) << std::endl;
-
-            auto fi = fopen("chnk.bin", "wb");
-            //fwrite(raw_Data_vis, 1, 4096, fi);
-            //fwrite(raw_Data, 1, 32 * 32 * 64, fi);
-            fwrite(comp_data_space, 1, rle_len, fi);
-            fclose(fi);
-            fi = fopen("chnk_raw.bin", "wb");
-            //fwrite(raw_Data_vis, 1, 4096, fi);
-            fwrite(raw_Data, 1, 32 * 32 * 64, fi);
-            //fwrite(comp_data_space2, 1, rle_len_packed, fi);
-            fclose(fi);
+            //chnks[i].SetSingle(1, 2, 1, 1);
+            //chnks[i].SetSingle(1, 3, 1, 1);
+            //chnks[i].SetSingle(1, 4, 1, 1);
 
             uint32_t loopback_cntr = 0;
             auto count = chnks[i].GetCompiledLen();
@@ -412,10 +223,10 @@ int main(int, char **)
 
     srand(0);
 
-    /*{
+    {
         double avg_duration = 0;
         int sample_cnt = 10000;
-        int iter_cnt = 60000;
+        int iter_cnt = 30000;
 
         auto x_v_2 = new uint8_t[sample_cnt * iter_cnt * 3];
         for (int i = 0; i < sample_cnt * iter_cnt; i++)
@@ -478,7 +289,7 @@ int main(int, char **)
             avg_duration += (stop_ns - start_ns) / 1000.0;
         }
         std::cout << "[SetSingle + UpdateMasks] Duration: " << avg_duration / sample_cnt << "us, Per Insert: " << avg_duration / (sample_cnt * iter_cnt) * 1000 << "ns" << std::endl;
-    }*/
+    }
 
     double lastTime = 0, nowTime = 0;
     while (!win.ShouldClose())
