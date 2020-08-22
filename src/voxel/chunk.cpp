@@ -265,31 +265,32 @@ void PVV::Chunk::Compile(uint32_t *inds_p)
                         auto btm_col = *(cur_col_p + ChunkSide - 2); //btm_col_p++;
                         auto xz = z | x;
 
-#define MESH_LOOP(col, face)                                                       \
-    {                                                                              \
-        if (col != 0)                                                              \
-        {                                                                          \
-            uint32_t start_fidx = xz | _tzcnt_u64(col);                            \
-            uint32_t fidx = start_fidx;                                            \
-            uint8_t cur_mat = vxl_u8_sh[fidx];                                     \
-            uint32_t next_fidx;                                                    \
-            uint8_t next_mat;                                                      \
-            uint64_t next_col;                                                     \
-            do                                                                     \
-            {                                                                      \
-                next_col = _blsr_u64(col);                                         \
-                next_fidx = xz | _tzcnt_u64(next_col);                             \
-                next_mat = vxl_u8_sh[next_fidx];                                   \
-                if ((cur_mat != next_mat) | ((fidx + 1) != next_fidx))             \
-                {                                                                  \
-                    inds_p = packFaces_c(start_fidx, fidx, cur_mat, inds_p, face); \
-                    start_fidx = next_fidx;                                        \
-                }                                                                  \
-                col = next_col;                                                    \
-                fidx = next_fidx;                                                  \
-                cur_mat = next_mat;                                                \
-            } while (col != 0);                                                    \
-        }                                                                          \
+#define MESH_LOOP(col, face)                                                        \
+    {                                                                               \
+        if (col != 0)                                                               \
+        {                                                                           \
+            uint32_t start_fidx = xz | _tzcnt_u64(col);                             \
+            uint32_t fidx = start_fidx;                                             \
+            uint8_t cur_mat = vxl_u8_sh[fidx];                                      \
+            uint32_t next_fidx;                                                     \
+            uint8_t next_mat;                                                       \
+            uint64_t next_col;                                                      \
+            do                                                                      \
+            {                                                                       \
+                next_col = _blsr_u64(col);                                          \
+                next_fidx = xz | _tzcnt_u64(next_col);                              \
+                next_mat = vxl_u8_sh[next_fidx];                                    \
+                uint64_t neighbor_test = (3 << (fidx & 0x3f));                      \
+                if ((cur_mat != next_mat) | (col & neighbor_test) != neighbor_test) \
+                {                                                                   \
+                    inds_p = packFaces_c(start_fidx, fidx, cur_mat, inds_p, face);  \
+                    start_fidx = next_fidx;                                         \
+                }                                                                   \
+                col = next_col;                                                     \
+                fidx = next_fidx;                                                   \
+                cur_mat = next_mat;                                                 \
+            } while (col != 0);                                                     \
+        }                                                                           \
     }
 
 #define MESH_DIRECT_LOOP(col, face)                              \
