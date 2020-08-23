@@ -241,14 +241,14 @@ uint32_t *PVV::Chunk::Compile(uint32_t *inds_p)
             auto vec_2 = _mm_load_si128((__m128i *)&vxl_u8_[32]);
             auto vec_3 = _mm_load_si128((__m128i *)&vxl_u8_[48]);
 
-            uint64_t lbtm = _mm_movemask_epi8(_mm_cmpgt_epi8(vec_0, zr_vec));
-            uint64_t ltop = _mm_movemask_epi8(_mm_cmpgt_epi8(vec_1, zr_vec));
-            uint64_t hbtm = _mm_movemask_epi8(_mm_cmpgt_epi8(vec_2, zr_vec));
-            uint64_t htop = _mm_movemask_epi8(_mm_cmpgt_epi8(vec_3, zr_vec));
+            uint64_t lbtm = _mm_movemask_epi8(_mm_cmpeq_epi8(vec_0, zr_vec));
+            uint64_t ltop = _mm_movemask_epi8(_mm_cmpeq_epi8(vec_1, zr_vec));
+            uint64_t hbtm = _mm_movemask_epi8(_mm_cmpeq_epi8(vec_2, zr_vec));
+            uint64_t htop = _mm_movemask_epi8(_mm_cmpeq_epi8(vec_3, zr_vec));
 
             m = lbtm | (ltop << 16) | (hbtm << 32) | (htop << 48);
             vxl_u8_ += 64;
-            *(vismask_l_p++) = m;
+            *(vismask_l_p++) = ~m;
         }
 
         auto visMask = vismask_l;
@@ -374,14 +374,14 @@ uint32_t PVV::Chunk::GetCompiledLen()
             auto vec_2 = _mm_load_si128((__m128i *)&vxl_u8_[32]);
             auto vec_3 = _mm_load_si128((__m128i *)&vxl_u8_[48]);
 
-            uint64_t lbtm = _mm_movemask_epi8(_mm_cmpgt_epi8(vec_0, zr_vec));
-            uint64_t ltop = _mm_movemask_epi8(_mm_cmpgt_epi8(vec_1, zr_vec));
-            uint64_t hbtm = _mm_movemask_epi8(_mm_cmpgt_epi8(vec_2, zr_vec));
-            uint64_t htop = _mm_movemask_epi8(_mm_cmpgt_epi8(vec_3, zr_vec));
+            uint64_t lbtm = _mm_movemask_epi8(_mm_cmpeq_epi8(vec_0, zr_vec));
+            uint64_t ltop = _mm_movemask_epi8(_mm_cmpeq_epi8(vec_1, zr_vec));
+            uint64_t hbtm = _mm_movemask_epi8(_mm_cmpeq_epi8(vec_2, zr_vec));
+            uint64_t htop = _mm_movemask_epi8(_mm_cmpeq_epi8(vec_3, zr_vec));
 
             m = lbtm | (ltop << 16) | (hbtm << 32) | (htop << 48);
             vxl_u8_ += 64;
-            *(vismask_l_p++) = m;
+            *(vismask_l_p++) = ~m;
         }
 
         auto visMask = vismask_l;
