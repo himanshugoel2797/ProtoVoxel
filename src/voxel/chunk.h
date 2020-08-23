@@ -47,6 +47,8 @@ namespace ProtoVoxel::Voxel
         uint32_t border_voxel_cnt;
         uint16_t regional_voxel_cnt[RegionCount];
         uint8_t *vxl_u8;
+        uint8_t *vxl_cmp;
+        uint32_t vxl_cmp_len;
         glm::ivec3 position;
 
     public:

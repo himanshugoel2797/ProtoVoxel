@@ -231,59 +231,24 @@ uint32_t *PVV::Chunk::Compile(uint32_t *inds_p)
         uint64_t vismask_l[32 * 32 * 64 / 8];
         uint8_t *vxl_u8_ = vxl_u8;
 
-        auto zr_vec = _mm256_setzero_si256();
-        auto mask_base = _mm_set_epi8(128, 64, 32, 16, 8, 4, 2, 1, 128, 64, 32, 16, 8, 4, 2, 1);
-        auto mask_vec = _mm256_set_m128i(mask_base, mask_base);
-        auto sv0 = _mm256_set_epi64x(1ull << 24, 1ull << 16, 1ull << 8, 1);
+        auto zr_vec = _mm_setzero_si128();
         uint64_t *vismask_l_p = vismask_l;
-        for (uint32_t i = 0; i < 32 * 32; i += 2)
+        for (uint32_t i = 0; i < 32 * 32; i++)
         {
             uint64_t m;
-            auto vec_0 = _mm256_load_si256((__m256i *)&vxl_u8_[0]);
-            auto vec_1 = _mm256_load_si256((__m256i *)&vxl_u8_[32]);
+            auto vec_0 = _mm_load_si128((__m128i *)&vxl_u8_[0]);
+            auto vec_1 = _mm_load_si128((__m128i *)&vxl_u8_[16]);
+            auto vec_2 = _mm_load_si128((__m128i *)&vxl_u8_[32]);
+            auto vec_3 = _mm_load_si128((__m128i *)&vxl_u8_[48]);
 
-            vec_0 = _mm256_and_si256(_mm256_cmpgt_epi8(vec_0, zr_vec), mask_vec);
-            vec_1 = _mm256_and_si256(_mm256_cmpgt_epi8(vec_1, zr_vec), mask_vec);
+            uint64_t lbtm = _mm_movemask_epi8(_mm_cmpgt_epi8(vec_0, zr_vec));
+            uint64_t ltop = _mm_movemask_epi8(_mm_cmpgt_epi8(vec_1, zr_vec));
+            uint64_t hbtm = _mm_movemask_epi8(_mm_cmpgt_epi8(vec_2, zr_vec));
+            uint64_t htop = _mm_movemask_epi8(_mm_cmpgt_epi8(vec_3, zr_vec));
 
-            vec_0 = _mm256_sad_epu8(vec_0, zr_vec);
-            vec_1 = _mm256_sad_epu8(vec_1, zr_vec);
-
-            vec_0 = _mm256_mul_epi32(vec_0, sv0);
-            vec_1 = _mm256_mul_epi32(vec_1, sv0);
-
-            vec_1 = _mm256_slli_si256(vec_1, 4);
-            vec_1 = _mm256_or_si256(vec_1, vec_0);
-
-            auto vec_2 = _mm256_extracti128_si256(vec_1, 0);
-            auto vec_3 = _mm256_extracti128_si256(vec_1, 1);
-            vec_2 = _mm_or_si128(vec_2, vec_3);
-
-            m = _mm_extract_epi64(vec_2, 0) | _mm_extract_epi64(vec_2, 1);
-            vismask_l_p[0] = m;
-
-            vec_0 = _mm256_load_si256((__m256i *)&vxl_u8_[64]);
-            vec_1 = _mm256_load_si256((__m256i *)&vxl_u8_[96]);
-
-            vec_0 = _mm256_and_si256(_mm256_cmpgt_epi8(vec_0, zr_vec), mask_vec);
-            vec_1 = _mm256_and_si256(_mm256_cmpgt_epi8(vec_1, zr_vec), mask_vec);
-
-            vec_0 = _mm256_sad_epu8(vec_0, zr_vec);
-            vec_1 = _mm256_sad_epu8(vec_1, zr_vec);
-
-            vec_0 = _mm256_mul_epi32(vec_0, sv0);
-            vec_1 = _mm256_mul_epi32(vec_1, sv0);
-
-            vec_1 = _mm256_slli_si256(vec_1, 4);
-            vec_1 = _mm256_or_si256(vec_1, vec_0);
-
-            vec_2 = _mm256_extracti128_si256(vec_1, 0);
-            vec_3 = _mm256_extracti128_si256(vec_1, 1);
-            vec_2 = _mm_or_si128(vec_2, vec_3);
-
-            m = _mm_extract_epi64(vec_2, 0) | _mm_extract_epi64(vec_2, 1);
-            vismask_l_p[1] = m;
-            vxl_u8_ += 128;
-            vismask_l_p += 2;
+            m = lbtm | (ltop << 16) | (hbtm << 32) | (htop << 48);
+            vxl_u8_ += 64;
+            *(vismask_l_p++) = m;
         }
 
         auto visMask = vismask_l;
@@ -399,59 +364,24 @@ uint32_t PVV::Chunk::GetCompiledLen()
         uint64_t vismask_l[32 * 32 * 64 / 8];
         uint8_t *vxl_u8_ = vxl_u8;
 
-        auto zr_vec = _mm256_setzero_si256();
-        auto mask_base = _mm_set_epi8(128, 64, 32, 16, 8, 4, 2, 1, 128, 64, 32, 16, 8, 4, 2, 1);
-        auto mask_vec = _mm256_set_m128i(mask_base, mask_base);
-        auto sv0 = _mm256_set_epi64x(1ull << 24, 1ull << 16, 1ull << 8, 1);
+        auto zr_vec = _mm_setzero_si128();
         uint64_t *vismask_l_p = vismask_l;
-        for (uint32_t i = 0; i < 32 * 32; i += 2)
+        for (uint32_t i = 0; i < 32 * 32; i++)
         {
             uint64_t m;
-            auto vec_0 = _mm256_load_si256((__m256i *)&vxl_u8_[0]);
-            auto vec_1 = _mm256_load_si256((__m256i *)&vxl_u8_[32]);
+            auto vec_0 = _mm_load_si128((__m128i *)&vxl_u8_[0]);
+            auto vec_1 = _mm_load_si128((__m128i *)&vxl_u8_[16]);
+            auto vec_2 = _mm_load_si128((__m128i *)&vxl_u8_[32]);
+            auto vec_3 = _mm_load_si128((__m128i *)&vxl_u8_[48]);
 
-            vec_0 = _mm256_and_si256(_mm256_cmpgt_epi8(vec_0, zr_vec), mask_vec);
-            vec_1 = _mm256_and_si256(_mm256_cmpgt_epi8(vec_1, zr_vec), mask_vec);
+            uint64_t lbtm = _mm_movemask_epi8(_mm_cmpgt_epi8(vec_0, zr_vec));
+            uint64_t ltop = _mm_movemask_epi8(_mm_cmpgt_epi8(vec_1, zr_vec));
+            uint64_t hbtm = _mm_movemask_epi8(_mm_cmpgt_epi8(vec_2, zr_vec));
+            uint64_t htop = _mm_movemask_epi8(_mm_cmpgt_epi8(vec_3, zr_vec));
 
-            vec_0 = _mm256_sad_epu8(vec_0, zr_vec);
-            vec_1 = _mm256_sad_epu8(vec_1, zr_vec);
-
-            vec_0 = _mm256_mul_epi32(vec_0, sv0);
-            vec_1 = _mm256_mul_epi32(vec_1, sv0);
-
-            vec_1 = _mm256_slli_si256(vec_1, 4);
-            vec_1 = _mm256_or_si256(vec_1, vec_0);
-
-            auto vec_2 = _mm256_extracti128_si256(vec_1, 0);
-            auto vec_3 = _mm256_extracti128_si256(vec_1, 1);
-            vec_2 = _mm_or_si128(vec_2, vec_3);
-
-            m = _mm_extract_epi64(vec_2, 0) | _mm_extract_epi64(vec_2, 1);
-            vismask_l_p[0] = m;
-
-            vec_0 = _mm256_load_si256((__m256i *)&vxl_u8_[64]);
-            vec_1 = _mm256_load_si256((__m256i *)&vxl_u8_[96]);
-
-            vec_0 = _mm256_and_si256(_mm256_cmpgt_epi8(vec_0, zr_vec), mask_vec);
-            vec_1 = _mm256_and_si256(_mm256_cmpgt_epi8(vec_1, zr_vec), mask_vec);
-
-            vec_0 = _mm256_sad_epu8(vec_0, zr_vec);
-            vec_1 = _mm256_sad_epu8(vec_1, zr_vec);
-
-            vec_0 = _mm256_mul_epi32(vec_0, sv0);
-            vec_1 = _mm256_mul_epi32(vec_1, sv0);
-
-            vec_1 = _mm256_slli_si256(vec_1, 4);
-            vec_1 = _mm256_or_si256(vec_1, vec_0);
-
-            vec_2 = _mm256_extracti128_si256(vec_1, 0);
-            vec_3 = _mm256_extracti128_si256(vec_1, 1);
-            vec_2 = _mm_or_si128(vec_2, vec_3);
-
-            m = _mm_extract_epi64(vec_2, 0) | _mm_extract_epi64(vec_2, 1);
-            vismask_l_p[1] = m;
-            vxl_u8_ += 128;
-            vismask_l_p += 2;
+            m = lbtm | (ltop << 16) | (hbtm << 32) | (htop << 48);
+            vxl_u8_ += 64;
+            *(vismask_l_p++) = m;
         }
 
         auto visMask = vismask_l;
