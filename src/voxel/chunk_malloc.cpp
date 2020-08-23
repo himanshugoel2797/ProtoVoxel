@@ -23,7 +23,7 @@ PVV::ChunkMalloc::~ChunkMalloc()
 
 void PVV::ChunkMalloc::Initialize()
 {
-    data_base = static_cast<uint8_t *>(VirtualAlloc(nullptr, FullSize, MEM_RESERVE, PAGE_NOACCESS));
+    data_base = static_cast<uint8_t *>(VirtualAlloc(nullptr, FullSize, MEM_RESERVE, PAGE_READONLY));
     if (data_base != nullptr)
     {
         for (uint32_t i = 0; i < BlockCount; i++)

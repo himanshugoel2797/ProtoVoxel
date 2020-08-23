@@ -13,9 +13,8 @@ void PVV::Chunk::Initialize(ChunkMalloc *mem_parent)
 {
     this->mem_parent = mem_parent;
     vxl_u8 = nullptr;
-    vismasks = nullptr;
     codingScheme = ChunkCodingScheme::SingleFull;
-    allVal = -1;
+    allVal = 0;
     set_voxel_cnt = 0;
     border_voxel_cnt = 0;
 }
@@ -24,7 +23,7 @@ void PVV::Chunk::SetAll(uint16_t val)
 {
     codingScheme = ChunkCodingScheme::SingleFull;
     allVal = val;
-    if (allVal != -1)
+    if (allVal != 0)
         set_voxel_cnt = ChunkLen;
     else
         set_voxel_cnt = 0;
@@ -33,9 +32,6 @@ void PVV::Chunk::SetAll(uint16_t val)
     {
         delete[] vxl_u8;
         vxl_u8 = nullptr;
-
-        delete[] vismasks;
-        vismasks = nullptr;
     }
 }
 
@@ -45,19 +41,15 @@ void PVV::Chunk::SetSingle(uint8_t x, uint8_t y, uint8_t z, int16_t val)
     {
     case ChunkCodingScheme::ByteRep:
     {
-        uint32_t b_idx = EncodeXZ(x, z);
-        auto vmask = vismasks[b_idx];
-        auto mask = (1ull << y);
-        uint32_t idx = EncodeXZ_Y(b_idx, y);
+        uint32_t idx = Encode(x, y, z);
         auto region = idx / RegionSize;
 
-        bool add_voxel = ((vmask & mask) == 0 && val != -1);
-        bool rm_voxel = ((vmask & mask) != 0 && val == -1);
-        vismasks[b_idx] = (vmask & ~mask) | (-(val != -1) & mask); //Set the visibility bit appropriately
+        if (regional_voxel_cnt[region] == 0)
+            mem_parent->CommitChunkRegion(vxl_u8, region);
+        bool add_voxel = (vxl_u8[idx] == 0 && val != -1);
+        bool rm_voxel = (vxl_u8[idx] != 0 && val == -1);
         if (add_voxel)
         {
-            if (regional_voxel_cnt[region] == 0)
-                mem_parent->CommitChunkRegion(vxl_u8, region);
             regional_voxel_cnt[region]++;
             set_voxel_cnt++;
 
@@ -230,23 +222,81 @@ static inline uint32_t *packFaces_c(uint32_t start_xyz, uint32_t end_xyz, uint8_
     return inds + 6;
 }
 
-void PVV::Chunk::Compile(uint32_t *inds_p)
+uint32_t *PVV::Chunk::Compile(uint32_t *inds_p)
 {
     switch (codingScheme)
     {
     case ChunkCodingScheme::ByteRep:
     {
+        uint64_t vismask_l[32 * 32 * 64 / 8];
+        uint8_t *vxl_u8_ = vxl_u8;
+
+        auto zr_vec = _mm256_setzero_si256();
+        auto mask_base = _mm_set_epi8(128, 64, 32, 16, 8, 4, 2, 1, 128, 64, 32, 16, 8, 4, 2, 1);
+        auto mask_vec = _mm256_set_m128i(mask_base, mask_base);
+        auto sv0 = _mm256_set_epi64x(1ull << 24, 1ull << 16, 1ull << 8, 1);
+        uint64_t *vismask_l_p = vismask_l;
+        for (uint32_t i = 0; i < 32 * 32; i += 2)
+        {
+            uint64_t m;
+            auto vec_0 = _mm256_load_si256((__m256i *)&vxl_u8_[0]);
+            auto vec_1 = _mm256_load_si256((__m256i *)&vxl_u8_[32]);
+
+            vec_0 = _mm256_and_si256(_mm256_cmpgt_epi8(vec_0, zr_vec), mask_vec);
+            vec_1 = _mm256_and_si256(_mm256_cmpgt_epi8(vec_1, zr_vec), mask_vec);
+
+            vec_0 = _mm256_sad_epu8(vec_0, zr_vec);
+            vec_1 = _mm256_sad_epu8(vec_1, zr_vec);
+
+            vec_0 = _mm256_mul_epi32(vec_0, sv0);
+            vec_1 = _mm256_mul_epi32(vec_1, sv0);
+
+            vec_1 = _mm256_slli_si256(vec_1, 4);
+            vec_1 = _mm256_or_si256(vec_1, vec_0);
+
+            auto vec_2 = _mm256_extracti128_si256(vec_1, 0);
+            auto vec_3 = _mm256_extracti128_si256(vec_1, 1);
+            vec_2 = _mm_or_si128(vec_2, vec_3);
+
+            m = _mm_extract_epi64(vec_2, 0) | _mm_extract_epi64(vec_2, 1);
+            vismask_l_p[0] = m;
+
+            vec_0 = _mm256_load_si256((__m256i *)&vxl_u8_[64]);
+            vec_1 = _mm256_load_si256((__m256i *)&vxl_u8_[96]);
+
+            vec_0 = _mm256_and_si256(_mm256_cmpgt_epi8(vec_0, zr_vec), mask_vec);
+            vec_1 = _mm256_and_si256(_mm256_cmpgt_epi8(vec_1, zr_vec), mask_vec);
+
+            vec_0 = _mm256_sad_epu8(vec_0, zr_vec);
+            vec_1 = _mm256_sad_epu8(vec_1, zr_vec);
+
+            vec_0 = _mm256_mul_epi32(vec_0, sv0);
+            vec_1 = _mm256_mul_epi32(vec_1, sv0);
+
+            vec_1 = _mm256_slli_si256(vec_1, 4);
+            vec_1 = _mm256_or_si256(vec_1, vec_0);
+
+            vec_2 = _mm256_extracti128_si256(vec_1, 0);
+            vec_3 = _mm256_extracti128_si256(vec_1, 1);
+            vec_2 = _mm_or_si128(vec_2, vec_3);
+
+            m = _mm_extract_epi64(vec_2, 0) | _mm_extract_epi64(vec_2, 1);
+            vismask_l_p[1] = m;
+            vxl_u8_ += 128;
+            vismask_l_p += 2;
+        }
+
+        auto visMask = vismask_l;
         auto vxl_u8_sh = vxl_u8 + 1;
-        auto visMask = vismasks;
         auto cur_col_p = visMask + ChunkSide;
         auto inds_orig = inds_p;
 
         if (border_voxel_cnt == BorderVoxelLen) //Completely surrounded
-            return;
+            return inds_p;
         if (set_voxel_cnt == ChunkLen) //Chunk is full and neighbors are full too, chunk is invisible
-            return;
+            return inds_p;
         if (set_voxel_cnt == 0)
-            return;
+            return inds_p;
 
         for (uint32_t x = 1 << 11; x < (ChunkSide - 1) << 11; x += 1 << 11)
         {
@@ -301,9 +351,6 @@ void PVV::Chunk::Compile(uint32_t *inds_p)
         inds_p = buildFace(inds_p, fidx, vxl_u8_sh[fidx], face); \
     }
 
-                        //RLE encode the current sequence of 64 voxels, use them as hints for further speeding up the face build
-                        //
-
                         uint64_t cur_col = __andn_u64(cur_col_orig << 1, cur_col_orig) >> 1;
                         MESH_DIRECT_LOOP(cur_col, frontFace);
 
@@ -330,6 +377,7 @@ void PVV::Chunk::Compile(uint32_t *inds_p)
                 cur_col_p += ChunkSide - 2;
         }
 
+        return inds_p;
         break;
     }
     case ChunkCodingScheme::SingleFull:
@@ -338,6 +386,8 @@ void PVV::Chunk::Compile(uint32_t *inds_p)
         break;
     }
     }
+
+    return nullptr;
 }
 
 uint32_t PVV::Chunk::GetCompiledLen()
@@ -346,7 +396,65 @@ uint32_t PVV::Chunk::GetCompiledLen()
     {
     case ChunkCodingScheme::ByteRep:
     {
-        auto visMask = vismasks;
+        uint64_t vismask_l[32 * 32 * 64 / 8];
+        uint8_t *vxl_u8_ = vxl_u8;
+
+        auto zr_vec = _mm256_setzero_si256();
+        auto mask_base = _mm_set_epi8(128, 64, 32, 16, 8, 4, 2, 1, 128, 64, 32, 16, 8, 4, 2, 1);
+        auto mask_vec = _mm256_set_m128i(mask_base, mask_base);
+        auto sv0 = _mm256_set_epi64x(1ull << 24, 1ull << 16, 1ull << 8, 1);
+        uint64_t *vismask_l_p = vismask_l;
+        for (uint32_t i = 0; i < 32 * 32; i += 2)
+        {
+            uint64_t m;
+            auto vec_0 = _mm256_load_si256((__m256i *)&vxl_u8_[0]);
+            auto vec_1 = _mm256_load_si256((__m256i *)&vxl_u8_[32]);
+
+            vec_0 = _mm256_and_si256(_mm256_cmpgt_epi8(vec_0, zr_vec), mask_vec);
+            vec_1 = _mm256_and_si256(_mm256_cmpgt_epi8(vec_1, zr_vec), mask_vec);
+
+            vec_0 = _mm256_sad_epu8(vec_0, zr_vec);
+            vec_1 = _mm256_sad_epu8(vec_1, zr_vec);
+
+            vec_0 = _mm256_mul_epi32(vec_0, sv0);
+            vec_1 = _mm256_mul_epi32(vec_1, sv0);
+
+            vec_1 = _mm256_slli_si256(vec_1, 4);
+            vec_1 = _mm256_or_si256(vec_1, vec_0);
+
+            auto vec_2 = _mm256_extracti128_si256(vec_1, 0);
+            auto vec_3 = _mm256_extracti128_si256(vec_1, 1);
+            vec_2 = _mm_or_si128(vec_2, vec_3);
+
+            m = _mm_extract_epi64(vec_2, 0) | _mm_extract_epi64(vec_2, 1);
+            vismask_l_p[0] = m;
+
+            vec_0 = _mm256_load_si256((__m256i *)&vxl_u8_[64]);
+            vec_1 = _mm256_load_si256((__m256i *)&vxl_u8_[96]);
+
+            vec_0 = _mm256_and_si256(_mm256_cmpgt_epi8(vec_0, zr_vec), mask_vec);
+            vec_1 = _mm256_and_si256(_mm256_cmpgt_epi8(vec_1, zr_vec), mask_vec);
+
+            vec_0 = _mm256_sad_epu8(vec_0, zr_vec);
+            vec_1 = _mm256_sad_epu8(vec_1, zr_vec);
+
+            vec_0 = _mm256_mul_epi32(vec_0, sv0);
+            vec_1 = _mm256_mul_epi32(vec_1, sv0);
+
+            vec_1 = _mm256_slli_si256(vec_1, 4);
+            vec_1 = _mm256_or_si256(vec_1, vec_0);
+
+            vec_2 = _mm256_extracti128_si256(vec_1, 0);
+            vec_3 = _mm256_extracti128_si256(vec_1, 1);
+            vec_2 = _mm_or_si128(vec_2, vec_3);
+
+            m = _mm_extract_epi64(vec_2, 0) | _mm_extract_epi64(vec_2, 1);
+            vismask_l_p[1] = m;
+            vxl_u8_ += 128;
+            vismask_l_p += 2;
+        }
+
+        auto visMask = vismask_l;
         auto cur_col_p = visMask + ChunkSide;
         uint32_t expectedLen = 0;
 
@@ -423,11 +531,8 @@ void PVV::Chunk::Decompress()
 {
     if (codingScheme == ChunkCodingScheme::SingleFull)
     {
-        vismasks = new uint64_t[ChunkSide * ChunkSide];
-        memset(vismasks, (allVal != -1) ? 0xff : 0x00, ChunkSide * ChunkSide * sizeof(uint64_t));
-
         vxl_u8 = mem_parent->AllocChunkBlock();
-        if (allVal != -1)
+        if (allVal != 0)
         {
             border_voxel_cnt = BorderVoxelLen;
             set_voxel_cnt = ChunkLen;
@@ -468,7 +573,4 @@ PVV::Chunk::~Chunk()
 {
     if (vxl_u8 != nullptr)
         mem_parent->FreeChunkBlock(vxl_u8);
-
-    if (vismasks != nullptr)
-        delete[] vismasks;
 }

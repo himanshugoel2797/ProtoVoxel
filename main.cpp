@@ -167,10 +167,10 @@ void main(){
         render_prog->Attach(frag);
         render_prog->Link();
 
-        fbuf = std::make_shared<PVG::Framebuffer>(640, 480);
+        fbuf = std::make_shared<PVG::Framebuffer>(1024, 1024);
 
-        colorTgt.SetStorage(GL_TEXTURE_2D, 1, GL_RGBA8, 640, 480);
-        depthTgt.SetStorage(GL_TEXTURE_2D, 1, GL_DEPTH_COMPONENT32F, 640, 480);
+        colorTgt.SetStorage(GL_TEXTURE_2D, 1, GL_RGBA8, 1024, 1024);
+        depthTgt.SetStorage(GL_TEXTURE_2D, 1, GL_DEPTH_COMPONENT32F, 1024, 1024);
 
         GLenum fbuf_drawbufs[] = {GL_COLOR_ATTACHMENT0};
         fbuf->Attach(GL_COLOR_ATTACHMENT0, colorTgt, 0);
@@ -201,18 +201,18 @@ void main(){
         //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         glCullFace(GL_BACK);
         glEnable(GL_DEPTH_TEST);
-        //glEnable(GL_CULL_FACE);
+        glEnable(GL_CULL_FACE);
         PVG::GraphicsDevice::MulitDrawElementsIndirectCount(PVG::Topology::Triangles, PVG::IndexType::UInt, 16, 0, 0, draw_count);
 
         glDisable(GL_DEPTH_TEST);
-        glBlitNamedFramebuffer(fbuf->GetID(), 0, 0, 0, 640, 480, 0, 0, 640, 480, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+        glBlitNamedFramebuffer(fbuf->GetID(), 0, 0, 0, 1024, 1024, 0, 0, 1024, 1024, GL_COLOR_BUFFER_BIT, GL_LINEAR);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 };
 
 int main(int, char **)
 {
-    PVC::Window win(640, 480, "Test");
+    PVC::Window win(1024, 1024, "Test");
     win.InitGL();
 
     PVC::Input::RegisterWindow(&win);

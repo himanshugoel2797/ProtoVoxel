@@ -24,7 +24,6 @@ namespace ProtoVoxel::Voxel
         static const int RegionSize = 4096;
         static const int RegionCount = ChunkLen / RegionSize; //(32 * 32 * 32 / 4096)
         static const int RegionLayerCount = ChunkLayers / RegionCount;
-        uint64_t *vismasks;
         static inline uint32_t Encode(uint8_t x, uint8_t y, uint8_t z)
         {
             return y | ((uint32_t)z << 6) | ((uint32_t)x << 11);
@@ -60,7 +59,7 @@ namespace ProtoVoxel::Voxel
         void SetAll(uint16_t val);
         void SetSingle(uint8_t x, uint8_t y, uint8_t z, int16_t val);
 
-        void Compile(uint32_t *inds_p);
+        uint32_t *Compile(uint32_t *inds_p);
         uint32_t GetCompiledLen();
 
         void *GetRawData();
