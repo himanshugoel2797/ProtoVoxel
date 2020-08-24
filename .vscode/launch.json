@@ -8,7 +8,7 @@
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/protovoxel.exe",
+            "program": "${workspaceFolder}/build/ProtoVoxel",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

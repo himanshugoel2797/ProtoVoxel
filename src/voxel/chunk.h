@@ -1,9 +1,8 @@
 #pragma once
 
+#include "glm/glm.hpp"
 #include <stdint.h>
 #include <vector>
-#include "glm/glm.hpp"
-#include "chunk_malloc.h"
 
 namespace ProtoVoxel::Voxel
 {
@@ -40,7 +39,6 @@ namespace ProtoVoxel::Voxel
         }
 
     private:
-        ChunkMalloc *mem_parent;
         ChunkCodingScheme codingScheme;
         int16_t allVal;
         uint32_t set_voxel_cnt;
@@ -55,7 +53,7 @@ namespace ProtoVoxel::Voxel
         Chunk();
         ~Chunk();
 
-        void Initialize(ChunkMalloc *mem_parent);
+        void Initialize();
         ChunkCodingScheme GetCodingScheme();
 
         void SetAll(uint16_t val);

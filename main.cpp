@@ -1,21 +1,19 @@
-#include "core/window.h"
 #include "core/input.h"
-#include "scenegraph/scenebase.h"
+#include "core/window.h"
 #include "graphics/graphicsdevice.h"
+#include "scenegraph/scenebase.h"
 #include "voxel/chunk.h"
-#include "voxel/chunk_malloc.h"
-#include "voxel/mesh_malloc.h"
 #include "voxel/draw_cmdlist.h"
+#include "voxel/mesh_malloc.h"
 #include "voxel/mortoncode.h"
 
 #include "voxel/PerlinNoise.h"
 
-#include <iostream>
-#include <fstream>
-#include <random>
 #include <chrono>
+#include <fstream>
+#include <iostream>
 #include <memory>
-#include <windows.h>
+#include <random>
 #include <x86intrin.h>
 
 namespace PVC = ProtoVoxel::Core;
@@ -30,7 +28,6 @@ public:
     TestScene() {}
     ~TestScene() {}
 
-    PVV::ChunkMalloc chunk_mem;
     PVV::MeshMalloc mesh_mem;
     PVV::Chunk chnks[128];
     PVV::DrawCmdList draw_cmds;
@@ -44,7 +41,6 @@ public:
     void Initialize() override
     {
         PVSG::SceneBase::Initialize();
-        chunk_mem.Initialize();
         mesh_mem.Initialize();
         uint32_t idx_offset = 0;
 
@@ -53,7 +49,7 @@ public:
         draw_cmds.BeginFrame();
         for (int i = 0; i < 1; i++)
         {
-            chnks[i].Initialize(&chunk_mem);
+            chnks[i].Initialize();
             for (int x = 0; x < 32; x++)
                 for (int z = 0; z < 32; z++)
                     for (int y = 0; y < 64; y++)
@@ -198,10 +194,10 @@ void main(){
     {
         PVG::GraphicsDevice::BindGraphicsPipeline(pipeline);
         PVG::GraphicsDevice::ClearAll();
-        //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         glCullFace(GL_BACK);
         glEnable(GL_DEPTH_TEST);
-        glEnable(GL_CULL_FACE);
+        //glEnable(GL_CULL_FACE);
         PVG::GraphicsDevice::MulitDrawElementsIndirectCount(PVG::Topology::Triangles, PVG::IndexType::UInt, 16, 0, 0, draw_count);
 
         glDisable(GL_DEPTH_TEST);
@@ -239,14 +235,11 @@ int main(int, char **)
             x_v_2[i * 3 + 2] = z;
         }
 
-        PVV::ChunkMalloc chnk_malloc;
-        chnk_malloc.Initialize();
-
         auto x_v = (uint8_t *)x_v_2;
         for (int samples = 0; samples < sample_cnt; samples++)
         {
             PVV::Chunk chnk;
-            chnk.Initialize(&chnk_malloc);
+            chnk.Initialize();
 
             auto start_ns = std::chrono::high_resolution_clock::now().time_since_epoch().count();
             for (int i = 0; i < iter_cnt; i++)
@@ -268,7 +261,7 @@ int main(int, char **)
         for (int samples = 0; samples < sample_cnt; samples++)
         {
             PVV::Chunk chnk;
-            chnk.Initialize(&chnk_malloc);
+            chnk.Initialize();
 
             for (int i = 0; i < iter_cnt; i++)
             {

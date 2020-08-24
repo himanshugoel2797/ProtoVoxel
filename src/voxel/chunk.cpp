@@ -9,9 +9,8 @@ PVV::Chunk::Chunk()
 {
 }
 
-void PVV::Chunk::Initialize(ChunkMalloc *mem_parent)
+void PVV::Chunk::Initialize()
 {
-    this->mem_parent = mem_parent;
     vxl_u8 = nullptr;
     codingScheme = ChunkCodingScheme::SingleFull;
     allVal = 0;
@@ -44,8 +43,6 @@ void PVV::Chunk::SetSingle(uint8_t x, uint8_t y, uint8_t z, int16_t val)
         uint32_t idx = Encode(x, y, z);
         auto region = idx / RegionSize;
 
-        if (regional_voxel_cnt[region] == 0)
-            mem_parent->CommitChunkRegion(vxl_u8, region);
         bool add_voxel = (vxl_u8[idx] == 0 && val != -1);
         bool rm_voxel = (vxl_u8[idx] != 0 && val == -1);
         if (add_voxel)
@@ -60,8 +57,6 @@ void PVV::Chunk::SetSingle(uint8_t x, uint8_t y, uint8_t z, int16_t val)
         if (rm_voxel)
         {
             regional_voxel_cnt[region]--;
-            if (regional_voxel_cnt[region] == 0)
-                mem_parent->DecommitChunkBlock(vxl_u8, region);
             set_voxel_cnt--;
 
             if (x == 0 | y == 0 | z == 0 | x == ChunkSide - 1 | y == ChunkSide - 1 | z == ChunkSide - 1)
@@ -222,6 +217,7 @@ static inline uint32_t *packFaces_c(uint32_t start_xyz, uint32_t end_xyz, uint8_
     return inds + 6;
 }
 
+#include <iostream>
 uint32_t *PVV::Chunk::Compile(uint32_t *inds_p)
 {
     switch (codingScheme)
@@ -280,32 +276,32 @@ uint32_t *PVV::Chunk::Compile(uint32_t *inds_p)
                         auto btm_col = *(cur_col_p + ChunkSide - 2); //btm_col_p++;
                         auto xz = z | x;
 
-#define MESH_LOOP(col, face)                                                        \
-    {                                                                               \
-        if (col != 0)                                                               \
-        {                                                                           \
-            uint32_t start_fidx = xz | _tzcnt_u64(col);                             \
-            uint32_t fidx = start_fidx;                                             \
-            uint8_t cur_mat = vxl_u8_sh[fidx];                                      \
-            uint32_t next_fidx;                                                     \
-            uint8_t next_mat;                                                       \
-            uint64_t next_col;                                                      \
-            do                                                                      \
-            {                                                                       \
-                next_col = _blsr_u64(col);                                          \
-                next_fidx = xz | _tzcnt_u64(next_col);                              \
-                next_mat = vxl_u8_sh[next_fidx];                                    \
-                uint64_t neighbor_test = (3 << (fidx & 0x3f));                      \
-                if ((cur_mat != next_mat) | (col & neighbor_test) != neighbor_test) \
-                {                                                                   \
-                    inds_p = packFaces_c(start_fidx, fidx, cur_mat, inds_p, face);  \
-                    start_fidx = next_fidx;                                         \
-                }                                                                   \
-                col = next_col;                                                     \
-                fidx = next_fidx;                                                   \
-                cur_mat = next_mat;                                                 \
-            } while (col != 0);                                                     \
-        }                                                                           \
+#define MESH_LOOP(col, face)                                                          \
+    {                                                                                 \
+        if (col != 0)                                                                 \
+        {                                                                             \
+            uint32_t start_fidx = xz | _tzcnt_u64(col);                               \
+            uint32_t fidx = start_fidx;                                               \
+            uint8_t cur_mat = vxl_u8_sh[fidx];                                        \
+            uint32_t next_fidx;                                                       \
+            uint8_t next_mat;                                                         \
+            uint64_t next_col;                                                        \
+            do                                                                        \
+            {                                                                         \
+                next_col = _blsr_u64(col);                                            \
+                next_fidx = xz | _tzcnt_u64(next_col);                                \
+                next_mat = vxl_u8_sh[next_fidx];                                      \
+                uint64_t neighbor_test = (3ull << (fidx & 0x3f));                     \
+                if ((cur_mat != next_mat) | ((col & neighbor_test) != neighbor_test)) \
+                {                                                                     \
+                    inds_p = packFaces_c(start_fidx, fidx, cur_mat, inds_p, face);    \
+                    start_fidx = next_fidx;                                           \
+                }                                                                     \
+                col = next_col;                                                       \
+                fidx = next_fidx;                                                     \
+                cur_mat = next_mat;                                                   \
+            } while (col != 0);                                                       \
+        }                                                                             \
     }
 
 #define MESH_DIRECT_LOOP(col, face)                              \
@@ -412,22 +408,22 @@ uint32_t PVV::Chunk::GetCompiledLen()
                         auto btm_col = *(cur_col_p + ChunkSide - 2); //btm_col_p++;
 
                         uint64_t cur_col = __andn_u64(cur_col_orig << 1, cur_col_orig) >> 1;
-                        expectedLen += __popcntq(cur_col);
+                        expectedLen += _mm_popcnt_u64(cur_col);
 
                         uint64_t cur_col2 = __andn_u64((int64_t)cur_col_orig >> 1, cur_col_orig) >> 1;
-                        expectedLen += __popcntq(cur_col2);
+                        expectedLen += _mm_popcnt_u64(cur_col2);
 
                         uint64_t top_vis = __andn_u64(top_col, cur_col_orig) >> 1; //(top_col ^ cur_col) & cur_col;
-                        expectedLen += __popcntq(top_vis);
+                        expectedLen += _mm_popcnt_u64(top_vis);
 
                         uint64_t btm_vis = __andn_u64(btm_col, cur_col_orig) >> 1; //(btm_col ^ cur_col) & cur_col;
-                        expectedLen += __popcntq(btm_vis);
+                        expectedLen += _mm_popcnt_u64(btm_vis);
 
                         uint64_t left_vis = __andn_u64(left_col, cur_col_orig) >> 1; //(left_col ^ cur_col) & cur_col;
-                        expectedLen += __popcntq(left_vis);
+                        expectedLen += _mm_popcnt_u64(left_vis);
 
                         uint64_t right_vis = __andn_u64(right_col, cur_col_orig) >> 1; //(right_col ^ cur_col) & cur_col;
-                        expectedLen += __popcntq(right_vis);
+                        expectedLen += _mm_popcnt_u64(right_vis);
                     }
 
                     left_col = cur_col_orig;
@@ -461,7 +457,7 @@ void PVV::Chunk::Decompress()
 {
     if (codingScheme == ChunkCodingScheme::SingleFull)
     {
-        vxl_u8 = mem_parent->AllocChunkBlock();
+        vxl_u8 = new uint8_t[ChunkLen];
         if (allVal != 0)
         {
             border_voxel_cnt = BorderVoxelLen;
@@ -469,7 +465,6 @@ void PVV::Chunk::Decompress()
             for (int i = 0; i < RegionCount; i++)
             {
                 regional_voxel_cnt[i] = RegionSize;
-                mem_parent->CommitChunkRegion(vxl_u8, i);
             }
             memset(vxl_u8, allVal, ChunkLen);
         }
@@ -479,6 +474,7 @@ void PVV::Chunk::Decompress()
             set_voxel_cnt = 0;
             for (int i = 0; i < RegionCount; i++)
                 regional_voxel_cnt[i] = 0;
+            memset(vxl_u8, 0, ChunkLen);
         }
         codingScheme = ChunkCodingScheme::ByteRep;
     }
@@ -502,5 +498,5 @@ PVV::ChunkCodingScheme PVV::Chunk::GetCodingScheme()
 PVV::Chunk::~Chunk()
 {
     if (vxl_u8 != nullptr)
-        mem_parent->FreeChunkBlock(vxl_u8);
+        delete[] vxl_u8;
 }
