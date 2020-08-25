@@ -75,7 +75,7 @@ void PVC::Window::InitGL()
     glfwMakeContextCurrent(winHndl);
     glfwSwapInterval(0);
 
-    gladLoadGL();
+    gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 #ifdef DEBUG
     glDebugMessageCallback(gl_debug_callback, nullptr);
     glEnable(GL_DEBUG_OUTPUT);

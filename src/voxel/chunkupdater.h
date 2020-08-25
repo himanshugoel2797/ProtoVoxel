@@ -23,9 +23,9 @@ namespace ProtoVoxel::Voxel
             ChunkState_UpdatePending = ChunkState_UpdateDataPending | ChunkState_UpdateMasksPending,
         };
 
-        uint64_t *mask_cache;
-        uint8_t *decompressed_cache;
-        uint8_t *compressed_cache;
+        alignas(32) uint64_t mask_cache[Chunk::ChunkLen / 64];
+        alignas(32) uint8_t decompressed_cache[Chunk::ChunkLen];
+        alignas(32) uint8_t compressed_cache[Chunk::ChunkLen];
         Chunk *active_chunk;
         ChunkUpdater::ChunkState active_state;
 

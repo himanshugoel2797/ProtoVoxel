@@ -1,5 +1,6 @@
 #include "core/input.h"
 #include "core/window.h"
+#include "graphics/gpubuffer.h"
 #include "graphics/graphicsdevice.h"
 #include "scenegraph/scenebase.h"
 #include "voxel/chunk.h"
@@ -30,11 +31,12 @@ public:
     ~TestScene() {}
 
     PVV::MeshMalloc mesh_mem;
-    PVV::Chunk chnks[128];
+    PVV::Chunk chnks[1024];
     PVV::ChunkUpdater chnk_updater;
     PVV::DrawCmdList draw_cmds;
     std::shared_ptr<PVG::ShaderProgram> render_prog;
     std::shared_ptr<PVG::Framebuffer> fbuf;
+    std::shared_ptr<PVG::GpuBuffer> pos_buf;
     PVG::Texture colorTgt;
     PVG::Texture depthTgt;
     PVG::GraphicsPipeline pipeline;
@@ -43,28 +45,36 @@ public:
     void Initialize() override
     {
         PVSG::SceneBase::Initialize();
+        pos_buf = std::make_shared<PVG::GpuBuffer>();
+        pos_buf->SetStorage(4 * sizeof(uint32_t) * 1024, GL_DYNAMIC_STORAGE_BIT);
+        glm::ivec4 positions[1024];
         mesh_mem.Initialize();
         uint32_t idx_offset = 0;
 
         siv::PerlinNoise noise(0);
 
+        auto startTime = std::chrono::high_resolution_clock::now().time_since_epoch().count();
         draw_cmds.BeginFrame();
-        for (int i = 0; i < 128; i++)
+        for (int i = 0; i < 512; i++)
         {
+            auto posvec = glm::ivec3((i % 32) * 31 - 1, 0, (i / 32) * 31 - 1);
+            positions[i] = glm::ivec4(posvec, 0);
             chnks[i].Initialize();
+            chnks[i].SetPosition(posvec);
+
             chnk_updater.UnpackChunk(&chnks[i]);
             for (int x = 0; x < 32; x++)
                 for (int z = 0; z < 32; z++)
-                    for (int y = 0; y < 64; y++)
-                    //for (int q = 0; q < 60000; q++)
-                    {
-                        //uint8_t x = rand() % 32;
-                        //uint8_t y = rand() % 64;
-                        //uint8_t z = rand() % 32;
-                        auto d = noise.noise3D_0_1(x * 0.012345, z * 0.012345, y * 0.012345);
-                        if (d > 0.5)
-                            chnk_updater.SetBlock(x, y, z, (uint8_t)(d * 10));
-                    }
+                //for (int y = 0; y < 64; y++)
+                //for (int q = 0; q < 60000; q++)
+                {
+                    //uint8_t x = rand() % 32;
+                    //uint8_t y = rand() % 64;
+                    //uint8_t z = rand() % 32;
+                    auto d = noise.noise3D_0_1((posvec.x + x) * 0.05, 0.05, (posvec.z + z) * 0.05);
+                    //if (d > 0.5)
+                    chnk_updater.SetBlock(x, (uint8_t)(d * 50), z, 1);
+                }
             //chnks[i].SetSingle(0, 1, 1, 1);
             //chnks[i].SetSingle(1, 0, 1, 1);
             //chnks[i].SetSingle(1, 1, 1, 1);
@@ -84,6 +94,9 @@ public:
             }
         }
         draw_count = draw_cmds.EndFrame();
+        auto stopTime = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+        std::cout << "Generation time: " << (stopTime - startTime) / 1000000.0 << "ms" << std::endl;
+        pos_buf->Update(0, 16 * 1024, positions);
 
         PVG::ShaderSource vert(GL_VERTEX_SHADER), frag(GL_FRAGMENT_SHADER);
         vert.SetSource(
@@ -108,7 +121,7 @@ layout(std140, binding = 0) uniform GlobalParams_t {
 } GlobalParams;
 
 layout(std140, binding = 1) uniform ChunkOffsets_t{
-        vec4 v[4096];
+        ivec4 v[1024];
 } ChunkOffsets;
 
 // Output data ; will be interpolated for each fragment.
@@ -123,7 +136,7 @@ void main(){
             UV.y = mod(y, 2);
             UV.z = mod(z, 2);
 
-            gl_Position = GlobalParams.vp * vec4(x, y, z, 1);
+            gl_Position = GlobalParams.vp * vec4(x + ChunkOffsets.v[gl_DrawID].x, y + ChunkOffsets.v[gl_DrawID].y, z + ChunkOffsets.v[gl_DrawID].z, 1);
 })");
         vert.Compile();
 
@@ -180,6 +193,7 @@ void main(){
         pipeline.SetDepthTest(GL_GEQUAL);
         pipeline.SetShaderProgram(render_prog);
         pipeline.SetFramebuffer(fbuf);
+        pipeline.SetUBO(1, pos_buf, 0, 4 * sizeof(float) * 1024);
         pipeline.SetIndirectBuffer(draw_cmds.GetBuffer(), 0, PVV::DrawCmdList::ListSize);
         pipeline.SetIndexBuffer(mesh_mem.GetBuffer(), 0, PVV::DrawCmdList::ListSize);
 
@@ -197,10 +211,10 @@ void main(){
     {
         PVG::GraphicsDevice::BindGraphicsPipeline(pipeline);
         PVG::GraphicsDevice::ClearAll();
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         glCullFace(GL_BACK);
         glEnable(GL_DEPTH_TEST);
-        //glEnable(GL_CULL_FACE);
+        glEnable(GL_CULL_FACE);
         PVG::GraphicsDevice::MulitDrawElementsIndirectCount(PVG::Topology::Triangles, PVG::IndexType::UInt, 16, 0, 0, draw_count);
 
         glDisable(GL_DEPTH_TEST);

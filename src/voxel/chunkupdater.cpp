@@ -7,23 +7,17 @@ namespace PVV = ProtoVoxel::Voxel;
 
 PVV::ChunkUpdater::ChunkUpdater()
 {
-    mask_cache = new uint64_t[Chunk::ChunkLen / 64];
-    decompressed_cache = new uint8_t[Chunk::ChunkLen];
-    compressed_cache = new uint8_t[Chunk::ChunkLen];
-
     active_chunk = nullptr;
 }
 
 PVV::ChunkUpdater::~ChunkUpdater()
 {
-    delete[] decompressed_cache;
-    delete[] mask_cache;
 }
 
 void PVV::ChunkUpdater::UnpackChunk(PVV::Chunk *chnk)
 {
     //Repack previous chunk if necessary
-    if (active_chunk != nullptr && active_state == ChunkState_UpdatePending)
+    if (active_chunk != nullptr && (active_state & ChunkState_UpdateDataPending))
     {
         //Repack
         uint32_t encoded_len = rle_encode(decompressed_cache, Chunk::ChunkLen, compressed_cache);
