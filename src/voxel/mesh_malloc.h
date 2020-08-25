@@ -14,7 +14,7 @@ namespace ProtoVoxel::Voxel
         uint32_t *mem_blk_end;
         uint32_t *mem_blk_cursor;
         uint32_t loopback_cnt = 0;
-        const int MallocPoolSize = 3 * 512 * 1024 * 1024; //1.5GiB
+        const uint64_t MallocPoolSize = 4ull * 512 * 1024 * 1024; //2GiB
 
         //We expect to loop through this buffer such that older entries are naturally out of range by the time they're overwritten
 
@@ -25,6 +25,7 @@ namespace ProtoVoxel::Voxel
         void Initialize();
         uint32_t *Alloc(size_t sz, uint32_t *loopback_cnt_ret);
         uint32_t GetCurrentLoopbackCount();
+        void Flush(uint32_t offset, uint32_t len);
 
         std::weak_ptr<ProtoVoxel::Graphics::GpuBuffer> GetBuffer();
     };

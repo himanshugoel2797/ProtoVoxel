@@ -32,6 +32,11 @@ void *PVG::GpuBuffer::PersistentMap(size_t offset, size_t sz, GLbitfield flags)
     return glMapNamedBufferRange(id, offset, sz, flags);
 }
 
+void PVG::GpuBuffer::Flush(uint32_t offset, uint32_t sz)
+{
+    glFlushMappedNamedBufferRange(id, offset, sz);
+}
+
 void PVG::GpuBuffer::Unmap()
 {
     glUnmapNamedBuffer(id);
