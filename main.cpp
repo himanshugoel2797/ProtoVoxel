@@ -3,6 +3,7 @@
 #include "graphics/graphicsdevice.h"
 #include "scenegraph/scenebase.h"
 #include "voxel/chunk.h"
+#include "voxel/chunkupdater.h"
 #include "voxel/draw_cmdlist.h"
 #include "voxel/mesh_malloc.h"
 #include "voxel/mortoncode.h"
@@ -30,6 +31,7 @@ public:
 
     PVV::MeshMalloc mesh_mem;
     PVV::Chunk chnks[128];
+    PVV::ChunkUpdater chnk_updater;
     PVV::DrawCmdList draw_cmds;
     std::shared_ptr<PVG::ShaderProgram> render_prog;
     std::shared_ptr<PVG::Framebuffer> fbuf;
@@ -47,9 +49,10 @@ public:
         siv::PerlinNoise noise(0);
 
         draw_cmds.BeginFrame();
-        for (int i = 0; i < 1; i++)
+        for (int i = 0; i < 128; i++)
         {
             chnks[i].Initialize();
+            chnk_updater.UnpackChunk(&chnks[i]);
             for (int x = 0; x < 32; x++)
                 for (int z = 0; z < 32; z++)
                     for (int y = 0; y < 64; y++)
@@ -60,7 +63,7 @@ public:
                         //uint8_t z = rand() % 32;
                         auto d = noise.noise3D_0_1(x * 0.012345, z * 0.012345, y * 0.012345);
                         if (d > 0.5)
-                            chnks[i].SetSingle(x, y, z, (int)(d * 10));
+                            chnk_updater.SetBlock(x, y, z, (uint8_t)(d * 10));
                     }
             //chnks[i].SetSingle(0, 1, 1, 1);
             //chnks[i].SetSingle(1, 0, 1, 1);
@@ -70,9 +73,9 @@ public:
             //chnks[i].SetSingle(1, 4, 1, 1);
 
             uint32_t loopback_cntr = 0;
-            auto count = chnks[i].GetCompiledLen();
+            auto count = chnk_updater.GetCompiledLength();
             auto mem_blk = mesh_mem.Alloc(count, &loopback_cntr);
-            chnks[i].Compile(mem_blk);
+            chnk_updater.Compile(mem_blk);
 
             if (count > 0)
             {
@@ -217,71 +220,6 @@ int main(int, char **)
     scene.Initialize();
 
     srand(0);
-
-    {
-        double avg_duration = 0;
-        int sample_cnt = 10000;
-        int iter_cnt = 30000;
-
-        auto x_v_2 = new uint8_t[sample_cnt * iter_cnt * 3];
-        for (int i = 0; i < sample_cnt * iter_cnt; i++)
-        {
-            uint8_t x = rand() % 32;
-            uint8_t y = rand() % 64;
-            uint8_t z = rand() % 32;
-
-            x_v_2[i * 3 + 0] = x;
-            x_v_2[i * 3 + 1] = y;
-            x_v_2[i * 3 + 2] = z;
-        }
-
-        auto x_v = (uint8_t *)x_v_2;
-        for (int samples = 0; samples < sample_cnt; samples++)
-        {
-            PVV::Chunk chnk;
-            chnk.Initialize();
-
-            auto start_ns = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-            for (int i = 0; i < iter_cnt; i++)
-            {
-                uint8_t x = *x_v++;
-                uint8_t y = *x_v++;
-                uint8_t z = *x_v++;
-
-                chnk.SetSingle(x, y, z, 1);
-            }
-            auto stop_ns = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-
-            avg_duration += (stop_ns - start_ns) / 1000.0;
-        }
-        std::cout << "[SetSingle] Duration: " << avg_duration / sample_cnt << "us, Per Insert: " << avg_duration / (sample_cnt * iter_cnt) * 1000 << "ns" << std::endl;
-
-        avg_duration = 0;
-        x_v = (uint8_t *)x_v_2;
-        for (int samples = 0; samples < sample_cnt; samples++)
-        {
-            PVV::Chunk chnk;
-            chnk.Initialize();
-
-            for (int i = 0; i < iter_cnt; i++)
-            {
-                uint8_t x = *x_v++;
-                uint8_t y = *x_v++;
-                uint8_t z = *x_v++;
-
-                chnk.SetSingle(x, y, z, 1);
-            }
-
-            auto start_ns = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-            auto resvec = new uint32_t[chnk.GetCompiledLen()];
-            chnk.Compile(resvec);
-            auto stop_ns = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-            delete[] resvec;
-
-            avg_duration += (stop_ns - start_ns) / 1000.0;
-        }
-        std::cout << "[SetSingle + UpdateMasks] Duration: " << avg_duration / sample_cnt << "us, Per Insert: " << avg_duration / (sample_cnt * iter_cnt) * 1000 << "ns" << std::endl;
-    }
 
     double lastTime = 0, nowTime = 0;
     while (!win.ShouldClose())

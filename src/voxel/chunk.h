@@ -12,6 +12,8 @@ namespace ProtoVoxel::Voxel
         ByteRep,    //8 bit translation table
     };
 
+    class ChunkUpdater;
+
     class Chunk
     {
     public:
@@ -39,33 +41,20 @@ namespace ProtoVoxel::Voxel
         }
 
     private:
-        ChunkCodingScheme codingScheme;
-        int16_t allVal;
         uint32_t set_voxel_cnt;
         uint32_t border_voxel_cnt;
         uint16_t regional_voxel_cnt[RegionCount];
-        uint8_t *vxl_u8;
-        uint8_t *vxl_cmp;
-        uint32_t vxl_cmp_len;
         glm::ivec3 position;
+        uint8_t *compressed_data;
+        uint32_t compressed_len;
+
+        friend class ChunkUpdater;
 
     public:
         Chunk();
         ~Chunk();
 
         void Initialize();
-        ChunkCodingScheme GetCodingScheme();
-
-        void SetAll(uint16_t val);
-        void SetSingle(uint8_t x, uint8_t y, uint8_t z, int16_t val);
-
-        uint32_t *Compile(uint32_t *inds_p);
-        uint32_t GetCompiledLen();
-
-        void *GetRawData();
-        uint32_t GetVoxelCount();
-        void Expand();
-        void Decompress();
 
         void SetPosition(glm::ivec3 &pos);
         glm::ivec3 &GetPosition();
