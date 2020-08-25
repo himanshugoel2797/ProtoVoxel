@@ -40,5 +40,6 @@ namespace ProtoVoxel::Graphics
 
         static void MultiDrawIndirect();
         static void MulitDrawElementsIndirectCount(Topology topo, IndexType type, int cmdOffset, int drawOffset, int stride, int maxDrawCount);
+        static void MulitDrawElementsIndirect(Topology topo, IndexType type, int cmdOffset, int stride, int maxDrawCount);
     };
 } // namespace ProtoVoxel::Graphics

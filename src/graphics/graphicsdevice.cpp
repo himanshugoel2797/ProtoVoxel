@@ -220,3 +220,42 @@ void PVG::GraphicsDevice::MulitDrawElementsIndirectCount(Topology topo, IndexTyp
 
     glMultiDrawElementsIndirectCount(mode, idx_type, (void *)cmdOffset, drawOffset, maxDrawCount, stride);
 }
+
+void PVG::GraphicsDevice::MulitDrawElementsIndirect(Topology topo, IndexType type, int cmdOffset, int stride, int maxDrawCount)
+{
+    int mode = 0;
+    switch (topo)
+    {
+    case Topology::Triangles:
+        mode = GL_TRIANGLES;
+        break;
+    case Topology::TriangleStrip:
+        mode = GL_TRIANGLE_STRIP;
+        break;
+    case Topology::Points:
+        mode = GL_POINTS;
+        break;
+    case Topology::Lines:
+        mode = GL_LINES;
+        break;
+    case Topology::LineStrip:
+        mode = GL_LINE_STRIP;
+        break;
+    }
+
+    int idx_type = 0;
+    switch (type)
+    {
+    case IndexType::UByte:
+        idx_type = GL_UNSIGNED_BYTE;
+        break;
+    case IndexType::UShort:
+        idx_type = GL_UNSIGNED_SHORT;
+        break;
+    case IndexType::UInt:
+        idx_type = GL_UNSIGNED_INT;
+        break;
+    }
+
+    glMultiDrawElementsIndirect(mode, idx_type, (void *)cmdOffset, maxDrawCount, stride);
+}

@@ -55,7 +55,7 @@ public:
 
         auto startTime = std::chrono::high_resolution_clock::now().time_since_epoch().count();
         draw_cmds.BeginFrame();
-        for (int i = 0; i < 512; i++)
+        for (int i = 0; i < 1; i++)
         {
             auto posvec = glm::ivec3((i % 32) * 31 - 1, 0, (i / 32) * 31 - 1);
             positions[i] = glm::ivec4(posvec, 0);
@@ -136,7 +136,7 @@ void main(){
             UV.y = mod(y, 2);
             UV.z = mod(z, 2);
 
-            gl_Position = GlobalParams.vp * vec4(x + ChunkOffsets.v[gl_DrawID].x, y + ChunkOffsets.v[gl_DrawID].y, z + ChunkOffsets.v[gl_DrawID].z, 1);
+            gl_Position = GlobalParams.vp * vec4(x, y, z, 1);
 })");
         vert.Compile();
 
@@ -215,7 +215,7 @@ void main(){
         glCullFace(GL_BACK);
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_CULL_FACE);
-        PVG::GraphicsDevice::MulitDrawElementsIndirectCount(PVG::Topology::Triangles, PVG::IndexType::UInt, 16, 0, 0, draw_count);
+        PVG::GraphicsDevice::MulitDrawElementsIndirect(PVG::Topology::Triangles, PVG::IndexType::UInt, 16, 0, draw_count);
 
         glDisable(GL_DEPTH_TEST);
         glBlitNamedFramebuffer(fbuf->GetID(), 0, 0, 0, 1024, 1024, 0, 0, 1024, 1024, GL_COLOR_BUFFER_BIT, GL_LINEAR);
