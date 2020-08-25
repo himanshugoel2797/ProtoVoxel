@@ -55,16 +55,16 @@ public:
 
         auto startTime = std::chrono::high_resolution_clock::now().time_since_epoch().count();
         draw_cmds.BeginFrame();
-        for (int i = 0; i < 1; i++)
+        for (int i = 0; i < 1024; i++)
         {
-            auto posvec = glm::ivec3((i % 32) * 31 - 1, 0, (i / 32) * 31 - 1);
+            auto posvec = glm::ivec3((i % 30) * 30, 0, (i / 30) * 30);
             positions[i] = glm::ivec4(posvec, 0);
             chnks[i].Initialize();
             chnks[i].SetPosition(posvec);
 
             chnk_updater.UnpackChunk(&chnks[i]);
-            for (int x = 0; x < 32; x++)
-                for (int z = 0; z < 32; z++)
+            for (int x = -1; x < 31; x++)
+                for (int z = -1; z < 31; z++)
                 //for (int y = 0; y < 64; y++)
                 //for (int q = 0; q < 60000; q++)
                 {
@@ -73,7 +73,7 @@ public:
                     //uint8_t z = rand() % 32;
                     auto d = noise.noise3D_0_1((posvec.x + x) * 0.05, 0.05, (posvec.z + z) * 0.05);
                     //if (d > 0.5)
-                    chnk_updater.SetBlock(x, (uint8_t)(d * 50), z, 1);
+                    chnk_updater.SetBlock(x + 1, (uint8_t)(d * 50), z + 1, 1);
                 }
             //chnks[i].SetSingle(0, 1, 1, 1);
             //chnks[i].SetSingle(1, 0, 1, 1);
@@ -85,7 +85,8 @@ public:
             uint32_t loopback_cntr = 0;
             auto count = chnk_updater.GetCompiledLength();
             auto mem_blk = mesh_mem.Alloc(count, &loopback_cntr);
-            chnk_updater.Compile(mem_blk);
+            auto real_cnt = chnk_updater.Compile(mem_blk);
+            mesh_mem.Flush(idx_offset * 4, real_cnt * 4);
 
             if (count > 0)
             {
@@ -136,7 +137,7 @@ void main(){
             UV.y = mod(y, 2);
             UV.z = mod(z, 2);
 
-            gl_Position = GlobalParams.vp * vec4(x, y, z, 1);
+            gl_Position = GlobalParams.vp * vec4(x + ChunkOffsets.v[gl_DrawID].x, y + ChunkOffsets.v[gl_DrawID].y, z + ChunkOffsets.v[gl_DrawID].z, 1);
 })");
         vert.Compile();
 
