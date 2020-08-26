@@ -25,7 +25,8 @@ namespace ProtoVoxel::Voxel
         void Initialize();
         uint32_t *Alloc(size_t sz, uint32_t *loopback_cnt_ret);
         uint32_t GetCurrentLoopbackCount();
-        void Flush(uint32_t offset, uint32_t len);
+        void Flush(uint32_t offset, uint32_t len, void *base_ptr);
+        void FreeRear(size_t sz);
 
         std::weak_ptr<ProtoVoxel::Graphics::GpuBuffer> GetBuffer();
     };

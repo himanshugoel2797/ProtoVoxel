@@ -20,8 +20,6 @@ void PVV::MeshMalloc::Initialize()
     mem_blk_end = mem_blk_ptr + MallocPoolSize / sizeof(uint32_t);
 }
 
-uint32_t *lastAlloc;
-
 uint32_t *PVV::MeshMalloc::Alloc(size_t sz, uint32_t *loopback_cnt_ret)
 {
     if (mem_blk_cursor + sz >= mem_blk_end)
@@ -33,14 +31,17 @@ uint32_t *PVV::MeshMalloc::Alloc(size_t sz, uint32_t *loopback_cnt_ret)
     mem_blk_cursor += sz;
     *loopback_cnt_ret = loopback_cnt;
 
-    lastAlloc = retVal;
     return retVal;
 }
 
-void PVV::MeshMalloc::Flush(uint32_t offset, uint32_t len)
+void PVV::MeshMalloc::Flush(uint32_t offset, uint32_t len, void *base_ptr)
 {
-    mem_blk->Update(offset, len, lastAlloc);
-    //mem_blk->Flush(offset, len);
+    mem_blk->Update(offset * sizeof(uint32_t), len * sizeof(uint32_t), base_ptr);
+}
+
+void PVV::MeshMalloc::FreeRear(size_t sz)
+{
+    mem_blk_cursor -= sz;
 }
 
 uint32_t PVV::MeshMalloc::GetCurrentLoopbackCount()
