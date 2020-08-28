@@ -118,8 +118,40 @@ void main(){
 
             color = ColorPalette.v[mat_idx];
 
-            gl_Position = GlobalParams.vp * (vec4(x, y, z, 1) + ChunkOffsets.v[gl_DrawID]);
-            gl_PointSize = 3000.0f / gl_Position.w;
+            vec4 bbox[8];
+            bbox[0] = GlobalParams.vp * vec4(UV + vec3(0.5f, 0.5f, 0.5f), 1);
+            bbox[1] = GlobalParams.vp * vec4(UV + vec3(0.5f, 0.5f, -0.5f), 1);
+            bbox[2] = GlobalParams.vp * vec4(UV + vec3(0.5f, -0.5f, 0.5f), 1);
+            bbox[3] = GlobalParams.vp * vec4(UV + vec3(0.5f, -0.5f, -0.5f), 1);
+            bbox[4] = GlobalParams.vp * vec4(UV + vec3(-0.5f, 0.5f, 0.5f), 1);
+            bbox[5] = GlobalParams.vp * vec4(UV + vec3(-0.5f, 0.5f, -0.5f), 1);
+            bbox[6] = GlobalParams.vp * vec4(UV + vec3(-0.5f, -0.5f, 0.5f), 1);
+            bbox[7] = GlobalParams.vp * vec4(UV + vec3(-0.5f, -0.5f, -0.5f), 1);
+
+            bbox[0] /= bbox[0].w;
+            bbox[1] /= bbox[1].w;
+            bbox[2] /= bbox[2].w;
+            bbox[3] /= bbox[3].w;
+            bbox[4] /= bbox[4].w;
+            bbox[5] /= bbox[5].w;
+            bbox[6] /= bbox[6].w;
+            bbox[7] /= bbox[7].w;
+            
+            vec2 max_comps = max( max( max( bbox[0].xy, bbox[1].xy), 
+                                       max( bbox[2].xy, bbox[3].xy)),  
+                                  max( max( bbox[4].xy, bbox[5].xy), 
+                                       max( bbox[6].xy, bbox[7].xy)));
+
+            vec2 min_comps = min( min( min( bbox[0].xy, bbox[1].xy), 
+                                       min( bbox[2].xy, bbox[3].xy)), 
+                                  min( min( bbox[4].xy, bbox[5].xy), 
+                                       min( bbox[6].xy, bbox[7].xy)));
+
+            vec2 dvec0 = (max_comps - min_comps);
+            float max_radius = max(dvec0.x, dvec0.y) * 0.5f; 
+            gl_PointSize = 1024.0f * max_radius * 1.1f;
+            
+            gl_Position = GlobalParams.vp * vec4(UV, 1);
 })");
     vert.Compile();
 
@@ -180,23 +212,19 @@ void main(){
     bool intersected = boxIntersection(eyePos, rayDir, UV - vec3(0.5f), UV + vec3(0.5f), t0, t1);
     if( intersected ){
         vec3 intersection = eyePos + rayDir * t0;
-        vec3 n = normalize(intersection - UV + 0.001f);
+        vec3 n = normalize(intersection - UV);
 
         vec3 abs_n = abs(n);
         float max_n = max(abs_n.x, max(abs_n.y, abs_n.z));
-        if (max_n == abs_n.x)
-            n = vec3(sign(n.x), 0, 0);
-        else if (max_n == abs_n.y)
-            n = vec3(0, sign(n.y), 0);
-        else if (max_n == abs_n.z)
-            n = vec3(0, 0, sign(n.z));
+        n = step(max_n, abs_n) * sign(n);
 
         vec4 trans_pos = GlobalParams.vp * vec4(intersection, 1);
         gl_FragDepth = trans_pos.z / trans_pos.w;
         out_color = vec4(n * 0.5f + 0.5f, 1);
     }else
         discard;
-    //    out_color = vec4(1, 0, 0, 1);
+
+    //out_color = vec4(1, 0, 0, 1);
 }
 )");
     frag.Compile();
