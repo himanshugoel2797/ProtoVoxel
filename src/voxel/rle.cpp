@@ -1,5 +1,5 @@
 #include "rle.h"
-#include <x86intrin.h>
+#include <immintrin.h>
 
 uint32_t rle_encode(uint8_t *raw_Data, uint32_t len, uint8_t *dst)
 {
@@ -27,7 +27,7 @@ uint32_t rle_encode(uint8_t *raw_Data, uint32_t len, uint8_t *dst)
         int32_t avail_bits = 32;
         for (; avail_bits > 0;)
         {
-            uint32_t zero_bits = __tzcnt_u32(equality_mask);
+            uint32_t zero_bits = _tzcnt_u32(equality_mask);
             if (zero_bits > avail_bits)
                 zero_bits = avail_bits;
 

@@ -126,3 +126,5 @@ _deps
 
 build/*
 *.zip
+/.vs
+/out/build

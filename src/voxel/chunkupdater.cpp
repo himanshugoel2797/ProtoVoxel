@@ -1,7 +1,7 @@
 #include "chunkupdater.h"
 #include "rle.h"
 #include <string.h>
-#include <x86intrin.h>
+#include <immintrin.h>
 
 namespace PVV = ProtoVoxel::Voxel;
 
@@ -110,23 +110,27 @@ uint32_t PVV::ChunkUpdater::GetCompiledLength()
                     auto top_col = *(cur_col_p - Chunk::ChunkSide - 2); //top_col_p++;
                     auto btm_col = *(cur_col_p + Chunk::ChunkSide - 2); //btm_col_p++;
 
-                    uint64_t cur_col = __andn_u64(cur_col_orig << 1, cur_col_orig) >> 1;
-                    expectedLen += _mm_popcnt_u64(cur_col);
+                    uint64_t any_vis = ((cur_col_orig << 1) & ((int64_t)cur_col_orig >> 1)) & (top_col & btm_col) & (left_col & right_col);
+                    any_vis = (~any_vis & cur_col_orig) >> 1;
+                    expectedLen += _mm_popcnt_u64(any_vis);
 
-                    uint64_t cur_col2 = __andn_u64((int64_t)cur_col_orig >> 1, cur_col_orig) >> 1;
-                    expectedLen += _mm_popcnt_u64(cur_col2);
+                    //uint64_t cur_col = _andn_u64(cur_col_orig << 1, cur_col_orig) >> 1;
+                    //expectedLen += _mm_popcnt_u64(cur_col);
 
-                    uint64_t top_vis = __andn_u64(top_col, cur_col_orig) >> 1; //(top_col ^ cur_col) & cur_col;
-                    expectedLen += _mm_popcnt_u64(top_vis);
+                    //uint64_t cur_col2 = _andn_u64((int64_t)cur_col_orig >> 1, cur_col_orig) >> 1;
+                    //expectedLen += _mm_popcnt_u64(cur_col2);
 
-                    uint64_t btm_vis = __andn_u64(btm_col, cur_col_orig) >> 1; //(btm_col ^ cur_col) & cur_col;
-                    expectedLen += _mm_popcnt_u64(btm_vis);
+                    //uint64_t top_vis = _andn_u64(top_col, cur_col_orig) >> 1; //(top_col ^ cur_col) & cur_col;
+                    //expectedLen += _mm_popcnt_u64(top_vis);
 
-                    uint64_t left_vis = __andn_u64(left_col, cur_col_orig) >> 1; //(left_col ^ cur_col) & cur_col;
-                    expectedLen += _mm_popcnt_u64(left_vis);
+                    //uint64_t btm_vis = _andn_u64(btm_col, cur_col_orig) >> 1; //(btm_col ^ cur_col) & cur_col;
+                    //expectedLen += _mm_popcnt_u64(btm_vis);
 
-                    uint64_t right_vis = __andn_u64(right_col, cur_col_orig) >> 1; //(right_col ^ cur_col) & cur_col;
-                    expectedLen += _mm_popcnt_u64(right_vis);
+                    //uint64_t left_vis = _andn_u64(left_col, cur_col_orig) >> 1; //(left_col ^ cur_col) & cur_col;
+                    //expectedLen += _mm_popcnt_u64(left_vis);
+
+                    //uint64_t right_vis = _andn_u64(right_col, cur_col_orig) >> 1; //(right_col ^ cur_col) & cur_col;
+                    //expectedLen += _mm_popcnt_u64(right_vis);
                 }
 
                 left_col = cur_col_orig;
@@ -135,7 +139,7 @@ uint32_t PVV::ChunkUpdater::GetCompiledLength()
         else
             cur_col_p += Chunk::ChunkSide - 2;
     }
-    return expectedLen * 6;
+    return expectedLen;
 }
 
 const uint32_t backFace = 0 << 29;
@@ -194,6 +198,9 @@ static inline uint32_t *buildFace(uint32_t *inds, uint32_t xyz, uint8_t mat, uin
     auto base_v_x = base_v_cmn + x_axis;
     auto base_v_y = base_v_cmn + y_axis;
     auto base_v_x_y = base_v_cmn + x_axis + y_axis;
+
+    inds[0] = base_v;
+    return inds + 1;
 
     switch (face)
     {
@@ -349,23 +356,27 @@ uint32_t PVV::ChunkUpdater::Compile(uint32_t *inds_p)
         inds_p = buildFace(inds_p, fidx, vxl_u8_sh[fidx], face); \
     }
 
-                    uint64_t cur_col = __andn_u64(cur_col_orig << 1, cur_col_orig) >> 1;
-                    MESH_DIRECT_LOOP(cur_col, frontFace);
+                    uint64_t any_vis = (cur_col_orig << 1) & ((int64_t)cur_col_orig >> 1) & (top_col & btm_col) & (left_col & right_col);
+                    any_vis = (~any_vis & cur_col_orig) >> 1;
+                    MESH_DIRECT_LOOP(any_vis, 0);
 
-                    uint64_t cur_col2 = __andn_u64((int64_t)cur_col_orig >> 1, cur_col_orig) >> 1;
-                    MESH_DIRECT_LOOP(cur_col2, backFace);
+                    //uint64_t cur_col = _andn_u64(cur_col_orig << 1, cur_col_orig) >> 1;
+                    //MESH_DIRECT_LOOP(cur_col, frontFace);
 
-                    uint64_t top_vis = __andn_u64(top_col, cur_col_orig) >> 1; //(top_col ^ cur_col) & cur_col;
-                    MESH_LOOP(top_vis, btmFace);
+                    //uint64_t cur_col2 = _andn_u64((int64_t)cur_col_orig >> 1, cur_col_orig) >> 1;
+                    //MESH_DIRECT_LOOP(cur_col2, backFace);
 
-                    uint64_t btm_vis = __andn_u64(btm_col, cur_col_orig) >> 1; //(btm_col ^ cur_col) & cur_col;
-                    MESH_LOOP(btm_vis, topFace);
+                    //uint64_t top_vis = _andn_u64(top_col, cur_col_orig) >> 1; //(top_col ^ cur_col) & cur_col;
+                    //MESH_LOOP(top_vis, btmFace);
 
-                    uint64_t left_vis = __andn_u64(left_col, cur_col_orig) >> 1; //(left_col ^ cur_col) & cur_col;
-                    MESH_LOOP(left_vis, rightFace);
+                    //uint64_t btm_vis = _andn_u64(btm_col, cur_col_orig) >> 1; //(btm_col ^ cur_col) & cur_col;
+                    //MESH_LOOP(btm_vis, topFace);
 
-                    uint64_t right_vis = __andn_u64(right_col, cur_col_orig) >> 1; //(right_col ^ cur_col) & cur_col;
-                    MESH_LOOP(right_vis, leftFace);
+                    //uint64_t left_vis = _andn_u64(left_col, cur_col_orig) >> 1; //(left_col ^ cur_col) & cur_col;
+                    //MESH_LOOP(left_vis, rightFace);
+
+                    //uint64_t right_vis = _andn_u64(right_col, cur_col_orig) >> 1; //(right_col ^ cur_col) & cur_col;
+                    //MESH_LOOP(right_vis, leftFace);
                 }
 
                 left_col = cur_col_orig;
@@ -387,8 +398,8 @@ void PVV::ChunkUpdater::SetBlock(uint8_t x, uint8_t y, uint8_t z, uint8_t val)
     uint32_t idx = Chunk::Encode(x, y, z);
     auto region = idx / Chunk::RegionSize;
 
-    bool add_voxel = (decompressed_cache[idx] == 0 && val != -1);
-    bool rm_voxel = (decompressed_cache[idx] != 0 && val == -1);
+    bool add_voxel = (decompressed_cache[idx] == 0 && val != 0);
+    bool rm_voxel = (decompressed_cache[idx] != 0 && val == 0);
     if (add_voxel)
     {
         active_chunk->regional_voxel_cnt[region]++;

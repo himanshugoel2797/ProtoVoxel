@@ -13,6 +13,7 @@ PVV::ChunkPalette::~ChunkPalette()
 
 void PVV::ChunkPalette::Initialize()
 {
+    palette.reserve(256);
     paletteBuffer = std::make_shared<PVG::GpuBuffer>();
     paletteBuffer->SetStorage(4 * sizeof(float) * 256, GL_DYNAMIC_STORAGE_BIT);
 }

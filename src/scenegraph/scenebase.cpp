@@ -4,7 +4,7 @@ namespace PVSG = ProtoVoxel::SceneGraph;
 namespace PVG = ProtoVoxel::Graphics;
 namespace PVC = ProtoVoxel::Core;
 
-PVSG::SceneBase::SceneBase() : camera(), camera_buffer()
+PVSG::SceneBase::SceneBase() : camera_buffer(), camera()
 {
 }
 

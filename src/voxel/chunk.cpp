@@ -1,12 +1,17 @@
 #include "chunk.h"
 #include "mortoncode.h"
 #include <string.h>
-#include <x86intrin.h>
+#include <immintrin.h>
 
 namespace PVV = ProtoVoxel::Voxel;
 
 PVV::Chunk::Chunk()
 {
+    set_voxel_cnt = 0;
+    border_voxel_cnt = 0;
+    memset(regional_voxel_cnt, 0, sizeof(regional_voxel_cnt));
+    compressed_len = 0;
+    compressed_data = nullptr;
 }
 
 void PVV::Chunk::Initialize()

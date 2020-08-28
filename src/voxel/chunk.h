@@ -12,6 +12,11 @@ namespace ProtoVoxel::Voxel
         ByteRep,    //8 bit translation table
     };
 
+    enum class ChunkStatus {
+        None,
+        MeshUpdatePending,
+    };
+
     class ChunkUpdater;
 
     class Chunk
@@ -44,9 +49,15 @@ namespace ProtoVoxel::Voxel
         uint32_t set_voxel_cnt;
         uint32_t border_voxel_cnt;
         uint16_t regional_voxel_cnt[RegionCount];
+        
         glm::ivec3 position;
         uint8_t *compressed_data;
         uint32_t compressed_len;
+
+        ChunkStatus status;
+        uint32_t loopback_cnt;
+        uint32_t* mesh_area_ptr;
+        uint32_t mesh_area_len;
 
         friend class ChunkUpdater;
 

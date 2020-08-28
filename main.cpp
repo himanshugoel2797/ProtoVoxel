@@ -4,6 +4,7 @@
 #include "graphics/graphicsdevice.h"
 #include "scenegraph/scenebase.h"
 #include "voxel/chunkmanager.h"
+#include "voxel/chunkjobmanager.h"
 #include "voxel/mortoncode.h"
 
 #include "voxel/PerlinNoise.h"
@@ -13,7 +14,7 @@
 #include <iostream>
 #include <memory>
 #include <random>
-#include <x86intrin.h>
+#include <immintrin.h>
 
 namespace PVC = ProtoVoxel::Core;
 namespace PVG = ProtoVoxel::Graphics;
@@ -29,13 +30,14 @@ public:
 
     PVV::ChunkPalette palette;
     PVV::ChunkManager manager;
+    PVV::ChunkJobManager jobManager;
 
     void Initialize() override
     {
         PVSG::SceneBase::Initialize();
 
+        jobManager.Initialize();
         palette.Initialize();
-        //palette.Register(glm::vec4(0, 0, 0, 0));
         for (int i = 255; i >= 0; i--)
             palette.Register(glm::vec4(0, i / 255.0, 0, 1));
 
@@ -61,8 +63,8 @@ int main(int, char **)
 
     PVC::Input::RegisterWindow(&win);
 
-    TestScene scene;
-    scene.Initialize();
+    TestScene* scene = new TestScene();
+    scene->Initialize();
 
     srand(0);
 
@@ -73,9 +75,9 @@ int main(int, char **)
         win.StartFrame();
         auto delta = (nowTime - lastTime) * 1000;
 
-        scene.UpdateStart(delta);
-        scene.Update(delta);
-        scene.Render(delta);
+        scene->UpdateStart(delta);
+        scene->Update(delta);
+        scene->Render(delta);
 
         win.SwapBuffers();
         lastTime = nowTime;

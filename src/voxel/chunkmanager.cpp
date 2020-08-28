@@ -47,9 +47,8 @@ void PVV::ChunkManager::Initialize(ChunkPalette &palette)
             {
                 auto d = noise.noise3D_0_1((posvec.x + x) * 0.005, 0 * 0.005, (posvec.z + z) * 0.005);
                 //if (d > 0.5)
-                for (int y = 0; y < d * 240; y++)
-                    if (y >= posvec.y && y < posvec.y + 64)
-                        chnk_updater.SetBlock(x + 1, y - posvec.y, z + 1, 1);
+                for (int y = posvec.y; y < d * 240 && y < posvec.y + 64; y++)
+                    chnk_updater.SetBlock(x + 1, y - posvec.y, z + 1, 1);
             }
 
         uint32_t loopback_cntr = 0;
@@ -69,6 +68,7 @@ void PVV::ChunkManager::Initialize(ChunkPalette &palette)
     draw_count = draw_cmds.EndFrame();
     auto stopTime = std::chrono::high_resolution_clock::now().time_since_epoch().count();
     std::cout << "Generation time: " << (stopTime - startTime) / 1000000.0 << "ms" << std::endl;
+    std::cout << "Splatted Voxels: " << idx_offset << std::endl;
     pos_buf->Update(0, 16 * GridLen, positions);
 
     PVG::ShaderSource vert(GL_VERTEX_SHADER), frag(GL_FRAGMENT_SHADER);
@@ -112,13 +112,14 @@ void main(){
 
             int mat_idx = int((gl_VertexID >> 0) & 0x7f);
 
-            UV.x = x;
-            UV.y = y;
-            UV.z = z;
+            UV.x = x + ChunkOffsets.v[gl_DrawID].x;
+            UV.y = y + ChunkOffsets.v[gl_DrawID].y;
+            UV.z = z + ChunkOffsets.v[gl_DrawID].z;
 
             color = ColorPalette.v[mat_idx];
 
             gl_Position = GlobalParams.vp * (vec4(x, y, z, 1) + ChunkOffsets.v[gl_DrawID]);
+            gl_PointSize = 3000.0f / gl_Position.w;
 })");
     vert.Compile();
 
@@ -150,9 +151,52 @@ layout(std140, binding = 0) uniform GlobalParams_t {
         vec4 eyeDir;
 } GlobalParams;
 
+bool boxIntersection( vec3 ro, vec3 rd, vec3 aabb_min, vec3 aabb_max, out float t0, out float t1 ) 
+{
+    vec3 invR = 1.0f / rd;
+    vec3 tmin = invR * (aabb_min - ro);
+    vec3 tmax = invR * (aabb_max - ro);
+    vec3 t1_ = min(tmin, tmax);
+    vec3 t2_ = max(tmin, tmax);
+
+    t0 = max(max(t1_.x, t1_.y), t1_.z);
+    t1 = min(min(t2_.x, t2_.y), t2_.z);
+    return t0 <= t1;
+}
+
 void main(){
-            out_color = vec4(fract(UV), 1);
-            out_color.a = 1;
+    vec3 eyePos = GlobalParams.eyePos.xyz;
+    vec2 screenPos = 2.0f * gl_FragCoord.xy / 1024.0f - 1.0f;
+    vec3 rayDir = vec3(screenPos.x, screenPos.y, 0.01f);
+    vec4 pPos = (GlobalParams.ivp * vec4(rayDir, 1));
+    pPos /= pPos.w;
+
+    rayDir = (pPos.xyz - eyePos);
+
+    float t0;
+    float t1;
+
+    //out_color = vec4(rayDir * 0.5f + 0.5f, 1);
+    bool intersected = boxIntersection(eyePos, rayDir, UV - vec3(0.5f), UV + vec3(0.5f), t0, t1);
+    if( intersected ){
+        vec3 intersection = eyePos + rayDir * t0;
+        vec3 n = normalize(intersection - UV + 0.001f);
+
+        vec3 abs_n = abs(n);
+        float max_n = max(abs_n.x, max(abs_n.y, abs_n.z));
+        if (max_n == abs_n.x)
+            n = vec3(sign(n.x), 0, 0);
+        else if (max_n == abs_n.y)
+            n = vec3(0, sign(n.y), 0);
+        else if (max_n == abs_n.z)
+            n = vec3(0, 0, sign(n.z));
+
+        vec4 trans_pos = GlobalParams.vp * vec4(intersection, 1);
+        gl_FragDepth = trans_pos.z / trans_pos.w;
+        out_color = vec4(n * 0.5f + 0.5f, 1);
+    }else
+        discard;
+    //    out_color = vec4(1, 0, 0, 1);
 }
 )");
     frag.Compile();
@@ -195,7 +239,8 @@ void PVV::ChunkManager::Render(double time)
     glCullFace(GL_BACK);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
-    PVG::GraphicsDevice::MulitDrawElementsIndirect(PVG::Topology::Triangles, PVG::IndexType::UInt, 16, 0, draw_count);
+    glEnable(GL_PROGRAM_POINT_SIZE);
+    PVG::GraphicsDevice::MulitDrawElementsIndirect(PVG::Topology::Points, PVG::IndexType::UInt, 16, 0, draw_count);
 
     glDisable(GL_DEPTH_TEST);
     glBlitNamedFramebuffer(fbuf->GetID(), 0, 0, 0, 1024, 1024, 0, 0, 1024, 1024, GL_COLOR_BUFFER_BIT, GL_LINEAR);
