@@ -24,7 +24,6 @@ void PVV::ChunkManager::Initialize(ChunkPalette &palette)
     this->palette = palette;
     pos_buf = std::make_shared<PVG::GpuBuffer>();
     pos_buf->SetStorage(4 * sizeof(uint32_t) * GridLen, GL_DYNAMIC_STORAGE_BIT);
-    glm::ivec4 positions[GridLen];
     mesh_mem.Initialize();
     uint32_t idx_offset = 0;
     uint32_t pos_offset = 0;
@@ -43,10 +42,11 @@ void PVV::ChunkManager::Initialize(ChunkPalette &palette)
         chnk_updater.UnpackChunk(&chnks[i]);
         for (int x = -1; x < 31; x++)
             for (int z = -1; z < 31; z++)
-            //                for (int y = 0; y < 64; y++)
+                  //          for (int y = -1; y < 63; y++)
             {
-                auto d = noise.noise3D_0_1((posvec.x + x) * 0.005, 0 * 0.005, (posvec.z + z) * 0.005);
+                //auto d = noise.noise3D_0_1((posvec.x + x) * 0.005, (posvec.y + y) * 0.005, (posvec.z + z) * 0.005);
                 //if (d > 0.5)
+                auto d = noise.noise3D_0_1((posvec.x + x) * 0.005, 0 * 0.005, (posvec.z + z) * 0.005);
                 for (int y = posvec.y; y < d * 240 && y < posvec.y + 64; y++)
                     chnk_updater.SetBlock(x + 1, y - posvec.y, z + 1, 1);
             }
@@ -60,7 +60,11 @@ void PVV::ChunkManager::Initialize(ChunkPalette &palette)
 
         if (count > 0)
         {
-            draw_cmds.RecordDraw(count, idx_offset, 0, 0, 1);
+            struct draw_data_t dd;
+            dd.start_idx = idx_offset;
+            dd.len = count;
+            dd.pos = posvec;
+            draws.push_back(dd);
             idx_offset += count;
             pos_offset++;
         }
@@ -91,6 +95,7 @@ layout(std140, binding = 0) uniform GlobalParams_t {
         vec4 eyePos;
         vec4 eyeUp;
         vec4 eyeDir;
+        vec4 eyeRight;
 } GlobalParams;
 
 layout(std430, binding = 1) buffer readonly restrict ChunkOffsets_t{
@@ -103,7 +108,8 @@ layout(std140, binding = 2) uniform ColorPalette_t{
 
 // Output data ; will be interpolated for each fragment.
 out vec3 UV;
-out vec4 color;
+out vec3 eyePos_rel;
+out vec4 color_vs;
 
 void main(){
             float x = float((gl_VertexID >> 19) & 0x1f);
@@ -115,8 +121,9 @@ void main(){
             UV.x = x + ChunkOffsets.v[gl_DrawID].x;
             UV.y = y + ChunkOffsets.v[gl_DrawID].y;
             UV.z = z + ChunkOffsets.v[gl_DrawID].z;
+            eyePos_rel = GlobalParams.eyePos.xyz - UV;
 
-            color = ColorPalette.v[mat_idx];
+            color_vs = ColorPalette.v[mat_idx];
 
             vec4 bbox[8];
             bbox[0] = GlobalParams.vp * vec4(UV + vec3(0.5f, 0.5f, 0.5f), 1);
@@ -160,6 +167,7 @@ void main(){
 
 // Interpolated values from the vertex shaders
 in vec3 UV;
+in vec3 eyePos_rel;
 in vec4 color;
 
 // Ouput data
@@ -181,13 +189,14 @@ layout(std140, binding = 0) uniform GlobalParams_t {
         vec4 eyePos;
         vec4 eyeUp;
         vec4 eyeDir;
+        vec4 eyeRight;
 } GlobalParams;
 
-bool boxIntersection( vec3 ro, vec3 rd, vec3 aabb_min, vec3 aabb_max, out float t0, out float t1 ) 
+bool boxIntersection( vec3 ro, vec3 rd, out float t0, out float t1 ) 
 {
     vec3 invR = 1.0f / rd;
-    vec3 tmin = invR * (aabb_min - ro);
-    vec3 tmax = invR * (aabb_max - ro);
+    vec3 tmin = invR * (-0.5f - ro);
+    vec3 tmax = invR * (0.5f - ro);
     vec3 t1_ = min(tmin, tmax);
     vec3 t2_ = max(tmin, tmax);
 
@@ -197,34 +206,29 @@ bool boxIntersection( vec3 ro, vec3 rd, vec3 aabb_min, vec3 aabb_max, out float 
 }
 
 void main(){
-    vec3 eyePos = GlobalParams.eyePos.xyz;
-    vec2 screenPos = 2.0f * gl_FragCoord.xy / 1024.0f - 1.0f;
-    vec3 rayDir = vec3(screenPos.x, screenPos.y, 0.01f);
+    vec2 screenPos = 2.0f / 1024.0f * gl_FragCoord.xy - 1.0f;
+    vec3 rayDir = vec3(screenPos.x, screenPos.y, 0.01);
     vec4 pPos = (GlobalParams.ivp * vec4(rayDir, 1));
     pPos /= pPos.w;
 
-    rayDir = (pPos.xyz - eyePos);
+    rayDir = (pPos.xyz - GlobalParams.eyePos.xyz);
 
     float t0;
     float t1;
 
-    //out_color = vec4(rayDir * 0.5f + 0.5f, 1);
-    bool intersected = boxIntersection(eyePos, rayDir, UV - vec3(0.5f), UV + vec3(0.5f), t0, t1);
+    bool intersected = boxIntersection(eyePos_rel, rayDir, t0, t1);
     if( intersected ){
-        vec3 intersection = eyePos + rayDir * t0;
-        vec3 n = normalize(intersection - UV);
-
-        vec3 abs_n = abs(n);
+        vec3 intersection = eyePos_rel + rayDir * t0;
+        
+        vec3 abs_n = abs(intersection);
         float max_n = max(abs_n.x, max(abs_n.y, abs_n.z));
-        n = step(max_n, abs_n) * sign(n);
+        vec3 n = step(max_n, abs_n) * sign(intersection);
 
-        vec4 trans_pos = GlobalParams.vp * vec4(intersection, 1);
+        vec4 trans_pos = GlobalParams.vp * vec4(intersection + UV, 1);
         gl_FragDepth = trans_pos.z / trans_pos.w;
         out_color = vec4(n * 0.5f + 0.5f, 1);
     }else
         discard;
-
-    //out_color = vec4(1, 0, 0, 1);
 }
 )");
     frag.Compile();
@@ -254,8 +258,28 @@ void main(){
     pipeline.SetIndexBuffer(mesh_mem.GetBuffer(), 0, PVV::DrawCmdList::ListSize);
 }
 
-void PVV::ChunkManager::Update(std::weak_ptr<PVG::GpuBuffer> camera_buffer)
+void PVV::ChunkManager::Update(glm::vec4 camPos, std::weak_ptr<PVG::GpuBuffer> camera_buffer)
 {
+    std::sort(draws.begin(), draws.end(), [camPos](struct draw_data_t& a, struct draw_data_t& b) 
+        {
+            auto diff0 = glm::vec3(camPos.x - a.pos.x + 15, camPos.y - a.pos.y + 31, camPos.z - a.pos.z + 15);
+            auto diff1 = glm::vec3(camPos.x - b.pos.x + 15, camPos.y - b.pos.y + 31, camPos.z - b.pos.z + 15);
+
+            return glm::dot(diff0, diff0) < glm::dot(diff1, diff1);
+        });
+
+    draw_count = 0;
+    draw_cmds.BeginFrame();
+    for (int i = 0; i < draws.size(); i++) {
+        auto draw_cmd = draws.at(i);
+
+        draw_cmds.RecordDraw(draw_cmd.len, draw_cmd.start_idx, 0, 0, 1);
+        positions[i] = glm::ivec4(draw_cmd.pos, 0);
+    }
+    draw_cmds.EndFrame();
+    draw_count = draws.size();
+    pos_buf->Update(0, 16 * draws.size(), positions);
+
     pipeline.SetUBO(0, camera_buffer, 0, sizeof(ProtoVoxel::Core::GlobalParameters));
 }
 

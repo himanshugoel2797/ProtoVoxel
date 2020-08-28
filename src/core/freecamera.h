@@ -23,6 +23,7 @@ namespace ProtoVoxel::Core
         glm::vec4 eyePos;
         glm::vec4 eyeUp;
         glm::vec4 eyeDir;
+        glm::vec4 eyeRight;
     };
 
     class FreeCamera

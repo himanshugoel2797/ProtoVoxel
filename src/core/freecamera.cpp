@@ -131,6 +131,7 @@ void PVC::FreeCamera::Update(double time)
     params.view = glm::lookAt(pos, pos + dir, camRotUp);
     params.vp = params.proj * params.view;
     params.ivp = glm::inverse(params.vp);
+    params.eyeRight = glm::vec4(Right, 0);
 
     //Engine.Frustum = new Frustum(Engine.View, Engine.Projection, pos);
 }
