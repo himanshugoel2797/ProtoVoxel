@@ -38,8 +38,8 @@ namespace ProtoVoxel::Graphics
         static void BindGraphicsPipeline(GraphicsPipeline const &pipeline);
         static void BindComputePipeline(ComputePipeline const &pipeline);
 
-        static void MultiDrawIndirect();
-        static void MulitDrawElementsIndirectCount(Topology topo, IndexType type, int cmdOffset, int drawOffset, int stride, int maxDrawCount);
-        static void MulitDrawElementsIndirect(Topology topo, IndexType type, int cmdOffset, int stride, int maxDrawCount);
+        static void MultiDrawIndirect(Topology topo, int cmdOffset, int stride, int draw_count);
+        static void MultiDrawElementsIndirectCount(Topology topo, IndexType type, int cmdOffset, int drawOffset, int stride, int maxDrawCount);
+        static void MultiDrawElementsIndirect(Topology topo, IndexType type, int cmdOffset, int stride, int maxDrawCount);
     };
 } // namespace ProtoVoxel::Graphics

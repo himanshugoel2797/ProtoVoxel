@@ -15,17 +15,17 @@ namespace ProtoVoxel::Voxel
         {
             uint32_t count;
             uint32_t instanceCount;
-            uint32_t firstIndex;
+            //uint32_t firstIndex;
             uint32_t baseVertex;
             uint32_t baseInstance;
         } draw_cmd_t;
 
         typedef struct
         {
-            uint32_t draw_cnt;
-            uint32_t pd0;
-            uint32_t pd1;
-            uint32_t pd2;
+            //uint32_t draw_cnt;
+            //uint32_t pd0;
+            //uint32_t pd1;
+            //uint32_t pd2;
             draw_cmd_t cmds[DrawCmdCount];
         } draw_cmd_list_t;
 

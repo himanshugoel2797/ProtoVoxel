@@ -31,6 +31,7 @@ void PVV::ChunkManager::Initialize(ChunkPalette &palette)
     siv::PerlinNoise noise(0);
 
     auto startTime = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+    draw_count = 0;
     draw_cmds.BeginFrame();
     for (int i = 0; i < GridLen; i++)
     {
@@ -67,9 +68,10 @@ void PVV::ChunkManager::Initialize(ChunkPalette &palette)
             draws.push_back(dd);
             idx_offset += count;
             pos_offset++;
+            draw_count++;
         }
     }
-    draw_count = draw_cmds.EndFrame();
+    draw_cmds.EndFrame();
     auto stopTime = std::chrono::high_resolution_clock::now().time_since_epoch().count();
     std::cout << "Generation time: " << (stopTime - startTime) / 1000000.0 << "ms" << std::endl;
     std::cout << "Splatted Voxels: " << idx_offset << std::endl;
@@ -77,7 +79,7 @@ void PVV::ChunkManager::Initialize(ChunkPalette &palette)
 
     PVG::ShaderSource vert(GL_VERTEX_SHADER), frag(GL_FRAGMENT_SHADER);
     vert.SetSource(
-        R"(#version 460
+        R"(#version 460 core
 
 // Values that stay constant for the whole mesh.
 layout(std140, binding = 0) uniform GlobalParams_t {
@@ -102,6 +104,10 @@ layout(std430, binding = 1) buffer readonly restrict ChunkOffsets_t{
         ivec4 v[];
 } ChunkOffsets;
 
+layout(std430, binding = 2) buffer readonly restrict Voxels_t{
+        uint v[];
+} Voxels;
+
 layout(std140, binding = 2) uniform ColorPalette_t{
         vec4 v[256];
 } ColorPalette;
@@ -111,12 +117,15 @@ out vec3 UV;
 out vec3 eyePos_rel;
 out vec4 color_vs;
 
-void main(){
-            float x = float((gl_VertexID >> 19) & 0x1f);
-            float y = float((gl_VertexID >> 8) & 0x3f);
-            float z = float((gl_VertexID >> 14) & 0x1f);
+uniform uint DrawID;
 
-            int mat_idx = int((gl_VertexID >> 0) & 0x7f);
+void main(){
+            uint vID = Voxels.v[gl_VertexID];
+            float x = float((vID >> 19) & 0x1f);
+            float y = float((vID >> 8) & 0x3f);
+            float z = float((vID >> 14) & 0x1f);
+
+            int mat_idx = int((vID >> 0) & 0x7f);
 
             UV.x = x + ChunkOffsets.v[gl_DrawID].x;
             UV.y = y + ChunkOffsets.v[gl_DrawID].y;
@@ -158,12 +167,13 @@ void main(){
             float max_radius = max(dvec0.x, dvec0.y) * 0.5f; 
             gl_PointSize = 1024.0f * max_radius * 1.1f;
             
+            //gl_Position = vec4(x, y, z, 1);
             gl_Position = GlobalParams.vp * vec4(UV, 1);
 })");
     vert.Compile();
 
     frag.SetSource(
-        R"(#version 460
+        R"(#version 460 core
 
 // Interpolated values from the vertex shaders
 in vec3 UV;
@@ -217,15 +227,15 @@ void main(){
     float t1;
 
     bool intersected = boxIntersection(eyePos_rel, rayDir, t0, t1);
-    if( intersected ){
-        vec3 intersection = eyePos_rel + rayDir * t0;
+    vec3 intersection = eyePos_rel + rayDir * t0;
         
-        vec3 abs_n = abs(intersection);
-        float max_n = max(abs_n.x, max(abs_n.y, abs_n.z));
-        vec3 n = step(max_n, abs_n) * sign(intersection);
+    vec3 abs_n = abs(intersection);
+    float max_n = max(abs_n.x, max(abs_n.y, abs_n.z));
+    vec3 n = step(max_n, abs_n) * sign(intersection);
 
-        vec4 trans_pos = GlobalParams.vp * vec4(intersection + UV, 1);
-        gl_FragDepth = trans_pos.z / trans_pos.w;
+    vec4 trans_pos = GlobalParams.vp * vec4(intersection + UV, 1);
+    gl_FragDepth = trans_pos.z / trans_pos.w;
+    if( intersected ){
         out_color = vec4(n * 0.5f + 0.5f, 1);
     }else
         discard;
@@ -253,6 +263,7 @@ void main(){
     pipeline.SetShaderProgram(render_prog);
     pipeline.SetFramebuffer(fbuf);
     pipeline.SetSSBO(1, pos_buf, 0, 4 * sizeof(float) * GridLen);
+    pipeline.SetSSBO(2, mesh_mem.GetBuffer(), 0, 4 * idx_offset);
     pipeline.SetUBO(2, palette.GetBuffer(), 0, 4 * sizeof(float) * 256);
     pipeline.SetIndirectBuffer(draw_cmds.GetBuffer(), 0, PVV::DrawCmdList::ListSize);
     pipeline.SetIndexBuffer(mesh_mem.GetBuffer(), 0, PVV::DrawCmdList::ListSize);
@@ -273,7 +284,7 @@ void PVV::ChunkManager::Update(glm::vec4 camPos, std::weak_ptr<PVG::GpuBuffer> c
     for (int i = 0; i < draws.size(); i++) {
         auto draw_cmd = draws.at(i);
 
-        draw_cmds.RecordDraw(draw_cmd.len, draw_cmd.start_idx, 0, 0, 1);
+        draw_cmds.RecordDraw(draw_cmd.len, 0, draw_cmd.start_idx, 0, 1);
         positions[i] = glm::ivec4(draw_cmd.pos, 0);
     }
     draw_cmds.EndFrame();
@@ -292,7 +303,15 @@ void PVV::ChunkManager::Render(double time)
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
     glEnable(GL_PROGRAM_POINT_SIZE);
-    PVG::GraphicsDevice::MulitDrawElementsIndirect(PVG::Topology::Points, PVG::IndexType::UInt, 16, 0, draw_count);
+
+    /*for (int i = 0; i < draws.size(); i++) {
+        auto draw_cmd = draws.at(i);
+
+        glUniform1ui(0, i);
+        glDrawArrays(GL_POINTS, draw_cmd.start_idx, draw_cmd.len);
+    }*/
+    PVG::GraphicsDevice::MultiDrawIndirect(PVG::Topology::Points, 0, 0, draw_count);
+    //PVG::GraphicsDevice::MulitDrawElementsIndirect(PVG::Topology::Points, PVG::IndexType::UInt, 16, 0, draw_count);
 
     glDisable(GL_DEPTH_TEST);
     glBlitNamedFramebuffer(fbuf->GetID(), 0, 0, 0, 1024, 1024, 0, 0, 1024, 1024, GL_COLOR_BUFFER_BIT, GL_LINEAR);

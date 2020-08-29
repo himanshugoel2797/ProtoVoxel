@@ -22,23 +22,23 @@ PVV::DrawCmdList::~DrawCmdList()
 
 void PVV::DrawCmdList::BeginFrame()
 {
-    list.draw_cnt = 0;
+    //list.draw_cnt = 0;
     draw_cmd_ptr = list.cmds;
 }
 
 void PVV::DrawCmdList::RecordDraw(uint32_t count, uint32_t firstIndex, uint32_t baseVertex, uint32_t baseInstance, uint32_t instanceCount)
 {
 #if DEBUG
-    if (list.draw_cnt >= DrawCmdCount - 1)
-    {
-        std::cout << "Error: Exceeding draw cmd count." << std::endl;
-        return;
-    }
+    //if (list.draw_cnt >= DrawCmdCount - 1)
+    //{
+    //    std::cout << "Error: Exceeding draw cmd count." << std::endl;
+    //    return;
+    //}
 #endif
-    list.draw_cnt++;
+    //list.draw_cnt++;
     draw_cmd_ptr->count = count;
     draw_cmd_ptr->instanceCount = instanceCount;
-    draw_cmd_ptr->firstIndex = firstIndex;
+    //draw_cmd_ptr->firstIndex = firstIndex;
     draw_cmd_ptr->baseVertex = baseVertex;
     draw_cmd_ptr->baseInstance = baseInstance;
     draw_cmd_ptr++;
@@ -46,10 +46,11 @@ void PVV::DrawCmdList::RecordDraw(uint32_t count, uint32_t firstIndex, uint32_t 
 
 uint32_t PVV::DrawCmdList::EndFrame()
 {
-    auto cnt = list.draw_cnt;
+    //auto cnt = list.draw_cnt;
     draw_cmd_ptr = nullptr; //Ensures a segfault if any further writes are attempted
     cmd_list->Update(0, sizeof(draw_cmd_list_t), &list);
-    return cnt;
+    //return cnt;
+    return 1;
 }
 
 std::weak_ptr<ProtoVoxel::Graphics::GpuBuffer> PVV::DrawCmdList::GetBuffer()
