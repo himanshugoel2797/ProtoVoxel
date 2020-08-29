@@ -35,7 +35,7 @@ void PVV::ChunkManager::Initialize(ChunkPalette &palette)
     draw_cmds.BeginFrame();
     for (int i = 0; i < GridLen; i++)
     {
-        auto posvec = glm::ivec3((i % 64) * 30, (i / (64 * 64)) * 62, ((i / 64) % 64) * 30);
+        auto posvec = glm::ivec3((i % GridSide) * 30, (i / (GridSide * GridSide)) * 62, ((i / GridSide) % GridSide) * 30);
         positions[pos_offset] = glm::ivec4(posvec, 0);
         chnks[i].Initialize();
         chnks[i].SetPosition(posvec);
@@ -43,14 +43,14 @@ void PVV::ChunkManager::Initialize(ChunkPalette &palette)
         chnk_updater.UnpackChunk(&chnks[i]);
         for (int x = -1; x < 31; x++)
             for (int z = -1; z < 31; z++)
-            //          for (int y = -1; y < 63; y++)
-            {
-                //auto d = noise.noise3D_0_1((posvec.x + x) * 0.005, (posvec.y + y) * 0.005, (posvec.z + z) * 0.005);
-                //if (d > 0.5)
-                auto d = noise.noise3D_0_1((posvec.x + x) * 0.005, 0 * 0.005, (posvec.z + z) * 0.005);
-                for (int y = posvec.y; y < d * 240 && y < posvec.y + 64; y++)
-                    chnk_updater.SetBlock(x + 1, y - posvec.y, z + 1, 1);
-            }
+                for (int y = -1; y < 63; y++)
+                {
+                    auto d = noise.noise3D_0_1((posvec.x + x) * 0.005, (posvec.y + y) * 0.005, (posvec.z + z) * 0.005);
+                    if (d > 0.5)
+                        //auto d = noise.noise3D_0_1((posvec.x + x) * 0.005, 0 * 0.005, (posvec.z + z) * 0.005);
+                        //for (int y = posvec.y; y < d * 240 && y < posvec.y + 64; y++)
+                        chnk_updater.SetBlock(x + 1, y + 1, z + 1, 1);
+                }
 
         uint32_t loopback_cntr = 0;
         auto count = chnk_updater.GetCompiledLength();
@@ -80,6 +80,8 @@ void PVV::ChunkManager::Initialize(ChunkPalette &palette)
     PVG::ShaderSource vert(GL_VERTEX_SHADER), frag(GL_FRAGMENT_SHADER);
     vert.SetSource(
         R"(#version 460
+
+layout(location = 0) uniform uint DrawID;
 
 // Values that stay constant for the whole mesh.
 layout(std140, binding = 0) uniform GlobalParams_t {
@@ -117,15 +119,14 @@ out vec3 UV;
 out vec3 eyePos_rel;
 out vec4 color_vs;
 
-uniform uint DrawID;
 
 void main(){
             uint vID = Voxels.v[gl_VertexID];
-            float x = float((vID >> 19) & 0x1f);
-            float y = float((vID >> 8) & 0x3f);
-            float z = float((vID >> 14) & 0x1f);
+            float x = float((vID >> 19u) & 0x1fu);
+            float y = float((vID >> 8u) & 0x3fu);
+            float z = float((vID >> 14u) & 0x1fu);
 
-            int mat_idx = int((vID >> 0) & 0x7f);
+            int mat_idx = int((vID) & 0x7fu);
 
             UV.x = x + ChunkOffsets.v[gl_DrawID].x;
             UV.y = y + ChunkOffsets.v[gl_DrawID].y;
@@ -133,7 +134,6 @@ void main(){
             eyePos_rel = GlobalParams.eyePos.xyz - UV;
 
             color_vs = ColorPalette.v[mat_idx];
-
             vec4 bbox[8];
             bbox[0] = GlobalParams.vp * vec4(UV + vec3(0.5f, 0.5f, 0.5f), 1);
             bbox[1] = GlobalParams.vp * vec4(UV + vec3(0.5f, 0.5f, -0.5f), 1);
@@ -164,9 +164,9 @@ void main(){
                                        min( bbox[6].xy, bbox[7].xy)));
 
             vec2 dvec0 = (max_comps - min_comps);
-            float max_radius = max(dvec0.x, dvec0.y) * 0.5f; 
+            float max_radius = max(dvec0.x, dvec0.y) * 0.5f;
             gl_PointSize = 1024.0f * max_radius * 1.1f;
-            
+
             //gl_Position = vec4(x, y, z, 1);
             gl_Position = GlobalParams.vp * vec4(UV, 1);
 })");
@@ -233,11 +233,12 @@ void main(){
     float max_n = max(abs_n.x, max(abs_n.y, abs_n.z));
     vec3 n = step(max_n, abs_n) * sign(intersection);
 
-    vec4 trans_pos = GlobalParams.vp * vec4(intersection + UV, 1);
-    gl_FragDepth = trans_pos.z / trans_pos.w;
     if( intersected ){
+        vec4 trans_pos = GlobalParams.vp * vec4(intersection + UV, 1);
+        gl_FragDepth = trans_pos.z / trans_pos.w;
         out_color = vec4(n * 0.5f + 0.5f, 1);
     }else
+        //out_color = vec4(1, 0, 0, 1);
         discard;
 }
 )");
@@ -304,7 +305,8 @@ void PVV::ChunkManager::Render(double time)
     glEnable(GL_CULL_FACE);
     glEnable(GL_PROGRAM_POINT_SIZE);
 
-    /*for (int i = 0; i < draws.size(); i++) {
+    /*for (int i = 0; i < draws.size(); i++)
+    {
         auto draw_cmd = draws.at(i);
 
         glUniform1ui(0, i);

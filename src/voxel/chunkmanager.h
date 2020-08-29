@@ -1,16 +1,16 @@
 #pragma once
 
 #include "chunk.h"
-#include "mesh_malloc.h"
+#include "chunkpalette.h"
 #include "chunkupdater.h"
 #include "draw_cmdlist.h"
 #include "glm/glm.hpp"
-#include "graphics/gpubuffer.h"
-#include "graphics/shaderprogram.h"
 #include "graphics/framebuffer.h"
-#include "graphics/texture.h"
+#include "graphics/gpubuffer.h"
 #include "graphics/graphicspipeline.h"
-#include "chunkpalette.h"
+#include "graphics/shaderprogram.h"
+#include "graphics/texture.h"
+#include "mesh_malloc.h"
 #include <stdint.h>
 
 namespace ProtoVoxel::Voxel
@@ -18,11 +18,12 @@ namespace ProtoVoxel::Voxel
     class ChunkManager
     {
     private:
-        static const int GridSide = 64;
-        static const int GridHeight = 4;
+        static const int GridSide = 32;
+        static const int GridHeight = 16;
         static const int GridLen = GridSide * GridSide * GridHeight;
 
-        struct draw_data_t {
+        struct draw_data_t
+        {
             uint32_t start_idx;
             uint32_t len;
             glm::ivec3 pos;

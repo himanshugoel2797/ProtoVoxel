@@ -34,7 +34,7 @@ PVC::FreeCamera::FreeCamera()
     params.eyePos = glm::vec4(pos, 1);
     params.eyeDir = glm::vec4(dir, 0);
     params.eyeUp = glm::vec4(up, 0);
-    params.prev_proj = params.proj = MakeInfReversedZProjRH(glm::radians(45.0f), 16.0f / 9.0f, 0.01f);
+    params.prev_proj = params.proj = MakeInfReversedZProjRH(glm::radians(45.0f), 9.0f / 9.0f, 0.01f);
 }
 
 PVC::FreeCamera::~FreeCamera() {}

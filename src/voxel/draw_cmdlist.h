@@ -1,14 +1,14 @@
 #pragma once
-#include <stdint.h>
-#include <memory>
 #include "../graphics/gpubuffer.h"
+#include <memory>
+#include <stdint.h>
 
 namespace ProtoVoxel::Voxel
 {
     class DrawCmdList
     {
     public:
-        static const int DrawCmdCount = 16 * 1024;
+        static const int DrawCmdCount = 128 * 1024;
 
     private:
         typedef struct
