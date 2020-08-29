@@ -1,9 +1,9 @@
 #include "chunkmanager.h"
+#include "core/freecamera.h"
+#include "graphics/graphicsdevice.h"
+#include "voxel/PerlinNoise.h"
 #include <chrono>
 #include <iostream>
-#include "graphics/graphicsdevice.h"
-#include "core/freecamera.h"
-#include "voxel/PerlinNoise.h"
 
 //for now just a fixed size grid
 //chunkjobmanager class manages per thread resources for chunks like temporary memory to which chunks are decompressed
@@ -43,7 +43,7 @@ void PVV::ChunkManager::Initialize(ChunkPalette &palette)
         chnk_updater.UnpackChunk(&chnks[i]);
         for (int x = -1; x < 31; x++)
             for (int z = -1; z < 31; z++)
-                  //          for (int y = -1; y < 63; y++)
+            //          for (int y = -1; y < 63; y++)
             {
                 //auto d = noise.noise3D_0_1((posvec.x + x) * 0.005, (posvec.y + y) * 0.005, (posvec.z + z) * 0.005);
                 //if (d > 0.5)
@@ -79,7 +79,7 @@ void PVV::ChunkManager::Initialize(ChunkPalette &palette)
 
     PVG::ShaderSource vert(GL_VERTEX_SHADER), frag(GL_FRAGMENT_SHADER);
     vert.SetSource(
-        R"(#version 460 core
+        R"(#version 460
 
 // Values that stay constant for the whole mesh.
 layout(std140, binding = 0) uniform GlobalParams_t {
@@ -100,13 +100,13 @@ layout(std140, binding = 0) uniform GlobalParams_t {
         vec4 eyeRight;
 } GlobalParams;
 
-layout(std430, binding = 1) buffer readonly restrict ChunkOffsets_t{
-        ivec4 v[];
-} ChunkOffsets;
-
-layout(std430, binding = 2) buffer readonly restrict Voxels_t{
-        uint v[];
+layout(std430, binding = 2) readonly restrict buffer Voxels_t {
+    uint v[];
 } Voxels;
+
+layout(std430, binding = 1) readonly restrict buffer ChunkOffsets_t {
+    ivec4 v[];
+} ChunkOffsets;
 
 layout(std140, binding = 2) uniform ColorPalette_t{
         vec4 v[256];
@@ -173,7 +173,7 @@ void main(){
     vert.Compile();
 
     frag.SetSource(
-        R"(#version 460 core
+        R"(#version 460
 
 // Interpolated values from the vertex shaders
 in vec3 UV;
@@ -271,17 +271,17 @@ void main(){
 
 void PVV::ChunkManager::Update(glm::vec4 camPos, std::weak_ptr<PVG::GpuBuffer> camera_buffer)
 {
-    std::sort(draws.begin(), draws.end(), [camPos](struct draw_data_t& a, struct draw_data_t& b) 
-        {
-            auto diff0 = glm::vec3(camPos.x - a.pos.x + 15, camPos.y - a.pos.y + 31, camPos.z - a.pos.z + 15);
-            auto diff1 = glm::vec3(camPos.x - b.pos.x + 15, camPos.y - b.pos.y + 31, camPos.z - b.pos.z + 15);
+    std::sort(draws.begin(), draws.end(), [camPos](struct draw_data_t &a, struct draw_data_t &b) {
+        auto diff0 = glm::vec3(camPos.x - a.pos.x + 15, camPos.y - a.pos.y + 31, camPos.z - a.pos.z + 15);
+        auto diff1 = glm::vec3(camPos.x - b.pos.x + 15, camPos.y - b.pos.y + 31, camPos.z - b.pos.z + 15);
 
-            return glm::dot(diff0, diff0) < glm::dot(diff1, diff1);
-        });
+        return glm::dot(diff0, diff0) < glm::dot(diff1, diff1);
+    });
 
     draw_count = 0;
     draw_cmds.BeginFrame();
-    for (int i = 0; i < draws.size(); i++) {
+    for (int i = 0; i < draws.size(); i++)
+    {
         auto draw_cmd = draws.at(i);
 
         draw_cmds.RecordDraw(draw_cmd.len, 0, draw_cmd.start_idx, 0, 1);
