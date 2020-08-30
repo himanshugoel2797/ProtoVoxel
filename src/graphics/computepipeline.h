@@ -12,21 +12,31 @@ namespace ProtoVoxel::Graphics {
     private:
         struct BufferBinding {
             bool valid;
-            std::weak_ptr<GpuBuffer> buffer;
+            GpuBuffer* buffer;
             size_t offset;
             size_t sz;
         };
 
         struct TextureBinding {
             bool valid;
-            std::weak_ptr<Texture> texture;
+            Texture* texture;
         };
 
-        std::weak_ptr<ShaderProgram> program;
+        struct ImageBinding
+        {
+            bool valid;
+            Texture* texture;
+            GLint format;
+            GLint rw;
+            int lvl;
+        };
+
+        ShaderProgram* program;
         struct BufferBinding indirectBuffer;
         struct BufferBinding* ssbos;
         struct BufferBinding* ubos;
         struct TextureBinding* textures;
+        struct ImageBinding* images;
 
         friend class GraphicsDevice;
 
@@ -34,19 +44,20 @@ namespace ProtoVoxel::Graphics {
         ComputePipeline();
         ~ComputePipeline();
 
-        void SetShaderProgram(std::weak_ptr<ShaderProgram> program);
-        void SetIndirectBuffer(std::weak_ptr<GpuBuffer> indirect,
+        void SetShaderProgram(ShaderProgram* program);
+        void SetIndirectBuffer(GpuBuffer* indirect,
             size_t offset,
             size_t sz);
 
         void SetSSBO(int bindpoint,
-            std::weak_ptr<GpuBuffer> buffer,
+            GpuBuffer* buffer,
             size_t offset,
             size_t sz);
         void SetUBO(int bindpoint,
-            std::weak_ptr<GpuBuffer> buffer,
+            GpuBuffer* buffer,
             size_t offset,
             size_t sz);
-        void SetTexture(int bindpoint, std::weak_ptr<Texture> texture);
+        void SetTexture(int bindpoint, Texture* texture);
+        void SetImage(int bindpoint, Texture* texture, GLenum format, GLenum rw, int lvl);
     };
 }  // namespace ProtoVoxel::Graphics

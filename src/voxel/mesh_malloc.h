@@ -9,7 +9,7 @@ namespace ProtoVoxel::Voxel
     class MeshMalloc
     {
     private:
-        std::shared_ptr<ProtoVoxel::Graphics::GpuBuffer> mem_blk;
+        ProtoVoxel::Graphics::GpuBuffer mem_blk;
         uint32_t *mem_blk_ptr;
         uint32_t *mem_blk_end;
         uint32_t *mem_blk_cursor;
@@ -28,6 +28,6 @@ namespace ProtoVoxel::Voxel
         void Flush(uint32_t offset, uint32_t len, void *base_ptr);
         void FreeRear(size_t sz);
 
-        std::weak_ptr<ProtoVoxel::Graphics::GpuBuffer> GetBuffer();
+        ProtoVoxel::Graphics::GpuBuffer* GetBuffer();
     };
 } // namespace ProtoVoxel::Voxel

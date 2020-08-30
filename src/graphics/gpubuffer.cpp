@@ -37,6 +37,11 @@ void PVG::GpuBuffer::Flush(uint32_t offset, uint32_t sz)
     glFlushMappedNamedBufferRange(id, offset, sz);
 }
 
+void PVG::GpuBuffer::Clear(uint32_t offset, uint32_t sz)
+{
+    glClearNamedBufferSubData(id, GL_R8UI, offset, sz, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+}
+
 void PVG::GpuBuffer::Unmap()
 {
     glUnmapNamedBuffer(id);

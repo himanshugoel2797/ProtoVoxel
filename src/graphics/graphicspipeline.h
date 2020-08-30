@@ -13,61 +13,72 @@
 
 namespace ProtoVoxel::Graphics
 {
-    class GraphicsDevice;
-    class GraphicsPipeline
-    {
-    private:
-        struct BufferBinding
-        {
-            bool valid;
-            std::weak_ptr<GpuBuffer> buffer;
-            size_t offset;
-            size_t sz;
-        };
+	class GraphicsDevice;
+	class GraphicsPipeline
+	{
+	private:
+		struct BufferBinding
+		{
+			bool valid;
+			GpuBuffer* buffer;
+			size_t offset;
+			size_t sz;
+		};
 
-        struct TextureBinding
-        {
-            bool valid;
-            std::weak_ptr<Texture> texture;
-        };
+		struct TextureBinding
+		{
+			bool valid;
+			Texture* texture;
+		};
 
-        GLenum depthTest;
-        std::weak_ptr<Framebuffer> fbuf;
-        std::weak_ptr<ShaderProgram> program;
-        struct BufferBinding indirectBuffer;
-        struct BufferBinding indexBuffer;
-        struct BufferBinding *ssbos;
-        struct BufferBinding *ubos;
-        struct TextureBinding *textures;
+		struct ImageBinding
+		{
+			bool valid;
+			Texture* texture;
+			GLint format;
+			GLint rw;
+			int lvl;
+		};
 
-        glm::vec4 clear_color;
-        float clear_depth = 0;
+		GLenum depthTest;
+		Framebuffer* fbuf;
+		ShaderProgram* program;
+		struct BufferBinding indirectBuffer;
+		struct BufferBinding indexBuffer;
+		struct BufferBinding* ssbos;
+		struct BufferBinding* ubos;
+		struct TextureBinding* textures;
+		struct ImageBinding* images;
 
-        friend class GraphicsDevice;
+		glm::vec4 clear_color;
+		float clear_depth = 0;
 
-    public:
-        GraphicsPipeline();
-        ~GraphicsPipeline();
+		friend class GraphicsDevice;
 
-        void SetClearColor(glm::vec4 const &vec);
-        void SetDepth(float clearDepth);
+	public:
+		GraphicsPipeline();
+		~GraphicsPipeline();
 
-        void SetDepthTest(GLenum depthTest);
-        void SetFramebuffer(std::weak_ptr<Framebuffer> fbuf);
-        void SetShaderProgram(std::weak_ptr<ShaderProgram> program);
-        void SetIndirectBuffer(std::weak_ptr<GpuBuffer> indirect,
-                               size_t offset,
-                               size_t sz);
-        void SetIndexBuffer(std::weak_ptr<GpuBuffer> index, size_t offset, size_t sz);
+		void SetClearColor(glm::vec4 const& vec);
+		void SetDepth(float clearDepth);
 
-        void SetSSBO(int bindpoint,
-                     std::weak_ptr<GpuBuffer> buffer,
-                     size_t offset,
-                     size_t sz);
-        void SetUBO(int bindpoint,
-                    std::weak_ptr<GpuBuffer> buffer,
-                    size_t offset,
-                    size_t sz);
-        void SetTexture(int bindpoint, std::weak_ptr<Texture> texture);
-    };
+		void SetDepthTest(GLenum depthTest);
+		void SetFramebuffer(Framebuffer* fbuf);
+		void SetShaderProgram(ShaderProgram* program);
+		void SetIndirectBuffer(GpuBuffer* indirect,
+			size_t offset,
+			size_t sz);
+		void SetIndexBuffer(GpuBuffer* index, size_t offset, size_t sz);
+
+		void SetSSBO(int bindpoint,
+			GpuBuffer* buffer,
+			size_t offset,
+			size_t sz);
+		void SetUBO(int bindpoint,
+			GpuBuffer* buffer,
+			size_t offset,
+			size_t sz);
+		void SetTexture(int bindpoint, Texture* texture);
+		void SetImage(int bindpoint, Texture* texture, GLenum format, GLenum rw, int lvl);
+	};
 } // namespace ProtoVoxel::Graphics

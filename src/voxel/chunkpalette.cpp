@@ -14,8 +14,7 @@ PVV::ChunkPalette::~ChunkPalette()
 void PVV::ChunkPalette::Initialize()
 {
     palette.reserve(256);
-    paletteBuffer = std::make_shared<PVG::GpuBuffer>();
-    paletteBuffer->SetStorage(4 * sizeof(float) * 256, GL_DYNAMIC_STORAGE_BIT);
+    paletteBuffer.SetStorage(4 * sizeof(float) * 256, GL_DYNAMIC_STORAGE_BIT);
 }
 
 int PVV::ChunkPalette::Count()
@@ -26,11 +25,11 @@ int PVV::ChunkPalette::Count()
 uint8_t PVV::ChunkPalette::Register(glm::vec4 val)
 {
     palette.push_back(val);
-    paletteBuffer->Update(0, 4 * sizeof(float) * 256, palette.data());
+    paletteBuffer.Update(0, 4 * sizeof(float) * 256, palette.data());
     return palette.size() - 1;
 }
 
-std::weak_ptr<PVG::GpuBuffer> PVV::ChunkPalette::GetBuffer()
+PVG::GpuBuffer* PVV::ChunkPalette::GetBuffer()
 {
-    return paletteBuffer;
+    return &paletteBuffer;
 }

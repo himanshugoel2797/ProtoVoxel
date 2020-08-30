@@ -8,8 +8,10 @@
 #include "graphics/framebuffer.h"
 #include "graphics/gpubuffer.h"
 #include "graphics/graphicspipeline.h"
+#include "graphics/computepipeline.h"
 #include "graphics/shaderprogram.h"
 #include "graphics/texture.h"
+#include "graphics/hiz.h"
 #include "mesh_malloc.h"
 #include <stdint.h>
 
@@ -18,8 +20,8 @@ namespace ProtoVoxel::Voxel
     class ChunkManager
     {
     private:
-        static const int GridSide = 32;
-        static const int GridHeight = 16;
+        static const int GridSide = 64;
+        static const int GridHeight = 4;
         static const int GridLen = GridSide * GridSide * GridHeight;
 
         struct draw_data_t
@@ -32,16 +34,40 @@ namespace ProtoVoxel::Voxel
         glm::ivec4 positions[GridLen];
 
         Chunk chnks[GridLen];
+        ProtoVoxel::Graphics::GraphicsPipeline pipeline;
         ProtoVoxel::Voxel::MeshMalloc mesh_mem;
         ProtoVoxel::Voxel::ChunkUpdater chnk_updater;
         ProtoVoxel::Voxel::DrawCmdList draw_cmds;
-        std::shared_ptr<ProtoVoxel::Graphics::ShaderProgram> render_prog;
-        std::shared_ptr<ProtoVoxel::Graphics::Framebuffer> fbuf;
-        std::shared_ptr<ProtoVoxel::Graphics::GpuBuffer> pos_buf;
+        ProtoVoxel::Graphics::ShaderProgram render_prog;
+        ProtoVoxel::Graphics::Framebuffer* fbuf;
+        ProtoVoxel::Graphics::GpuBuffer pos_buf;
         ProtoVoxel::Graphics::Texture colorTgt;
         ProtoVoxel::Graphics::Texture depthTgt;
-        ProtoVoxel::Graphics::GraphicsPipeline pipeline;
+        ProtoVoxel::Graphics::HiZ prev_mip_pyramid;
+        ProtoVoxel::Graphics::HiZ cur_mip_pyramid;
         ProtoVoxel::Voxel::ChunkPalette palette;
+
+        ProtoVoxel::Graphics::ComputePipeline bucketPipeline;
+        ProtoVoxel::Graphics::ShaderProgram bucket_prog;
+        ProtoVoxel::Graphics::GpuBuffer out_draw_buffer;
+        ProtoVoxel::Graphics::GpuBuffer out_splats_buffer;
+        ProtoVoxel::Graphics::GpuBuffer out_pos_buf;
+        ProtoVoxel::Graphics::GpuBuffer out_splats_pos_buf;
+
+        ProtoVoxel::Graphics::ComputePipeline splatPipeline;
+        ProtoVoxel::Graphics::ShaderProgram splat_prog;
+        ProtoVoxel::Graphics::Texture pointBuffer;
+
+        ProtoVoxel::Graphics::GraphicsPipeline resolvePipeline;
+        ProtoVoxel::Graphics::ShaderProgram resolve_prog;
+
+        ProtoVoxel::Graphics::GpuBuffer out_occluded_draw_buf;
+        ProtoVoxel::Graphics::GpuBuffer out_occluded_pos_buf;
+        ProtoVoxel::Graphics::ShaderProgram occludedCheck_prog;
+        ProtoVoxel::Graphics::ComputePipeline occludedTestPipeline;
+        ProtoVoxel::Graphics::GraphicsPipeline occludedPipeline;
+
+
         int draw_count;
 
     public:
@@ -49,7 +75,7 @@ namespace ProtoVoxel::Voxel
         ~ChunkManager();
 
         void Initialize(ProtoVoxel::Voxel::ChunkPalette &palette);
-        void Update(glm::vec4 camPos, std::weak_ptr<ProtoVoxel::Graphics::GpuBuffer> camera_buffer);
-        void Render(double time);
+        void Update(glm::vec4 camPos, glm::mat4 vp, ProtoVoxel::Graphics::GpuBuffer* camera_buffer);
+        void Render(ProtoVoxel::Graphics::GpuBuffer* camera_buffer, double time);
     };
 } // namespace ProtoVoxel::Voxel

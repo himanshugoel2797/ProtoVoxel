@@ -48,3 +48,8 @@ void PVG::Texture::SetStorage(GLenum target, int levels, int internalFormat,
 {
     SetStorage(target, levels, internalFormat, w, 1, 1);
 }
+
+void ProtoVoxel::Graphics::Texture::Clear(int lv, int internalFormat)
+{
+    glClearTexImage(id, lv, internalFormat, GL_BYTE, nullptr);
+}

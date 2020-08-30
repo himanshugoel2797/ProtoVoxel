@@ -18,6 +18,7 @@ namespace ProtoVoxel::Graphics {
         void SetStorage(GLenum target, int levels, int internalFormat, size_t w,
             size_t h);
         void SetStorage(GLenum target, int levels, int internalFormat, size_t w);
+        void Clear(int lv, int internalFormat);
 
         GLenum GetTarget() const {
             return target;

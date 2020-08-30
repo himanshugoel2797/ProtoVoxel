@@ -23,7 +23,6 @@
 *.pch
 
 # Libraries
-*.lib
 *.a
 *.la
 *.lo
@@ -128,3 +127,4 @@ build/*
 *.zip
 /.vs
 /out/build
+test_builds/

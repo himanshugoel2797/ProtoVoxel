@@ -8,8 +8,8 @@ namespace ProtoVoxel::Graphics
     class ShadowedGpuBuffer
     {
     private:
-        std::shared_ptr<GpuBuffer> main_buffer;
-        std::shared_ptr<GpuBuffer> shadow_buffer;
+        GpuBuffer* main_buffer;
+        GpuBuffer* shadow_buffer;
 
     public:
         ShadowedGpuBuffer();
@@ -20,6 +20,6 @@ namespace ProtoVoxel::Graphics
         void Invalidate(size_t offset, size_t sz);
 
         void Swap();
-        std::weak_ptr<GpuBuffer> GetBuffer();
+        GpuBuffer* GetBuffer();
     };
 } // namespace ProtoVoxel::Graphics

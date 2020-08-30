@@ -4,8 +4,8 @@ namespace PVG = ProtoVoxel::Graphics;
 
 PVG::ShadowedGpuBuffer::ShadowedGpuBuffer()
 {
-    main_buffer = std::make_shared<PVG::GpuBuffer>();
-    shadow_buffer = std::make_shared<PVG::GpuBuffer>();
+    main_buffer = new PVG::GpuBuffer();
+    shadow_buffer = new PVG::GpuBuffer();
 }
 
 PVG::ShadowedGpuBuffer::~ShadowedGpuBuffer() {}
@@ -28,10 +28,12 @@ void PVG::ShadowedGpuBuffer::Invalidate(size_t offset, size_t sz)
 
 void PVG::ShadowedGpuBuffer::Swap()
 {
-    main_buffer.swap(shadow_buffer);
+    auto tmp = shadow_buffer;
+    shadow_buffer = main_buffer;
+    main_buffer = tmp;
 }
 
-std::weak_ptr<PVG::GpuBuffer> PVG::ShadowedGpuBuffer::GetBuffer()
+PVG::GpuBuffer* PVG::ShadowedGpuBuffer::GetBuffer()
 {
     return main_buffer;
 }

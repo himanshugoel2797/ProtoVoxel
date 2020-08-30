@@ -12,7 +12,7 @@ namespace ProtoVoxel::Voxel
     {
     private:
         std::vector<glm::vec4> palette;
-        std::shared_ptr<ProtoVoxel::Graphics::GpuBuffer> paletteBuffer;
+        ProtoVoxel::Graphics::GpuBuffer paletteBuffer;
 
     public:
         ChunkPalette();
@@ -21,6 +21,6 @@ namespace ProtoVoxel::Voxel
         void Initialize();
         int Count();
         uint8_t Register(glm::vec4 val);
-        std::weak_ptr<ProtoVoxel::Graphics::GpuBuffer> GetBuffer();
+        ProtoVoxel::Graphics::GpuBuffer* GetBuffer();
     };
 } // namespace ProtoVoxel::Voxel

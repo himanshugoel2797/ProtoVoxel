@@ -20,6 +20,7 @@ namespace ProtoVoxel::Graphics
         void *PersistentMap(size_t offset, size_t sz, GLbitfield flags);
         void Unmap();
         void Flush(uint32_t offset, uint32_t len);
+        void Clear(uint32_t offset, uint32_t len);
 
         uint32_t GetID() const
         {

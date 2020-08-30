@@ -46,13 +46,13 @@ public:
 
     void Update(double time) override
     {
-        manager.Update(camera.GetParameters()->eyePos, PVSG::SceneBase::camera_buffer.GetBuffer());
+        manager.Update(camera.GetParameters()->eyePos, camera.GetParameters()->vp, PVSG::SceneBase::camera_buffer.GetBuffer());
         PVSG::SceneBase::Update(time);
     }
 
     void Render(double time) override
     {
-        manager.Render(time);
+        manager.Render(PVSG::SceneBase::camera_buffer.GetBuffer(), time);
     }
 };
 

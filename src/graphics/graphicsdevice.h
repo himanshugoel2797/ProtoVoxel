@@ -39,6 +39,8 @@ namespace ProtoVoxel::Graphics
         static void BindComputePipeline(ComputePipeline const &pipeline);
 
         static void MultiDrawIndirect(Topology topo, int cmdOffset, int stride, int draw_count);
+        static void MultiDrawIndirectCount(Topology topo, int cmdOffset, int drawOffset, int stride, int draw_count);
+        static void DispatchCompute(uint32_t x, uint32_t y, uint32_t z);
         static void MultiDrawElementsIndirectCount(Topology topo, IndexType type, int cmdOffset, int drawOffset, int stride, int maxDrawCount);
         static void MultiDrawElementsIndirect(Topology topo, IndexType type, int cmdOffset, int stride, int maxDrawCount);
     };
