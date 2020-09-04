@@ -27,8 +27,25 @@ void PVV::ChunkManager::Initialize(ChunkPalette& palette)
 
 	this->palette = palette;
 	out_draw_buffer.SetStorage(PVV::DrawCmdList::ListSize, GL_DYNAMIC_STORAGE_BIT);
-	out_splats_buffer.SetStorage(PVV::DrawCmdList::ListSize, GL_DYNAMIC_STORAGE_BIT);
+	out_draw_buffer.SetName("Out Draw Calls");
+
+	out_splats_buffer1.SetStorage(PVV::DrawCmdList::ListSize, GL_DYNAMIC_STORAGE_BIT);
+	out_splats_buffer1.SetName("256 splats");
+
+	out_splats_buffer2.SetStorage(PVV::DrawCmdList::ListSize, GL_DYNAMIC_STORAGE_BIT);
+	out_splats_buffer2.SetName("2*256 splats");
+
+	out_splats_buffer5.SetStorage(PVV::DrawCmdList::ListSize, GL_DYNAMIC_STORAGE_BIT);
+	out_splats_buffer5.SetName("5*256 splats");
+
+	out_splats_buffer10.SetStorage(PVV::DrawCmdList::ListSize, GL_DYNAMIC_STORAGE_BIT);
+	out_splats_buffer10.SetName("10*256 splats");
+
+	out_splats_bufferX.SetStorage(PVV::DrawCmdList::ListSize, GL_DYNAMIC_STORAGE_BIT);
+	out_splats_bufferX.SetName("Variable size splats");
+
 	out_occluded_draw_buf.SetStorage(PVV::DrawCmdList::ListSize, GL_DYNAMIC_STORAGE_BIT);
+	out_occluded_draw_buf.SetName("Occluded Draw Calls");
 
 	uint32_t idx_offset = 0;
 	uint32_t pos_offset = 0;
@@ -112,8 +129,12 @@ void PVV::ChunkManager::Initialize(ChunkPalette& palette)
 	bucketPipeline.SetShaderProgram(&bucket_prog);
 	bucketPipeline.SetSSBO(0, draw_cmds.GetBuffer(), 0, PVV::DrawCmdList::ListSize);
 	bucketPipeline.SetSSBO(1, &out_draw_buffer, 0, PVV::DrawCmdList::ListSize);
-	bucketPipeline.SetSSBO(2, &out_splats_buffer, 0, PVV::DrawCmdList::ListSize);
-	bucketPipeline.SetSSBO(3, &out_occluded_draw_buf, 0, PVV::DrawCmdList::ListSize);
+	bucketPipeline.SetSSBO(2, &out_splats_buffer1, 0, PVV::DrawCmdList::ListSize);
+	bucketPipeline.SetSSBO(3, &out_splats_buffer2, 0, PVV::DrawCmdList::ListSize);
+	bucketPipeline.SetSSBO(4, &out_splats_buffer5, 0, PVV::DrawCmdList::ListSize);
+	bucketPipeline.SetSSBO(5, &out_splats_buffer10, 0, PVV::DrawCmdList::ListSize);
+	bucketPipeline.SetSSBO(6, &out_splats_bufferX, 0, PVV::DrawCmdList::ListSize);
+	bucketPipeline.SetSSBO(7, &out_occluded_draw_buf, 0, PVV::DrawCmdList::ListSize);
 	bucketPipeline.SetTexture(0, prev_mip_pyramid.GetTexture());
 
 	occludedTestPipeline.SetIndirectBuffer(draw_cmds.GetBuffer(), 0, PVV::DrawCmdList::ListSize);
@@ -122,9 +143,9 @@ void PVV::ChunkManager::Initialize(ChunkPalette& palette)
 	occludedTestPipeline.SetSSBO(1, &out_draw_buffer, 0, PVV::DrawCmdList::ListSize);
 	occludedTestPipeline.SetTexture(0, cur_mip_pyramid.GetTexture());
 
-	splatPipeline.SetIndirectBuffer(&out_splats_buffer, 0, PVV::DrawCmdList::ListSize);
+	splatPipeline.SetIndirectBuffer(&out_splats_buffer1, 0, PVV::DrawCmdList::ListSize);
 	splatPipeline.SetShaderProgram(&splat_prog);
-	splatPipeline.SetSSBO(0, &out_splats_buffer, 0, PVV::DrawCmdList::ListSize);
+	splatPipeline.SetSSBO(0, &out_splats_buffer1, 0, PVV::DrawCmdList::ListSize);
 	splatPipeline.SetSSBO(1, mesh_mem.GetBuffer(), 0, 500 * 1024 * 1024);
 	splatPipeline.SetImage(0, &pointBuffer, GL_R32UI, GL_READ_WRITE, 0);
 
@@ -179,15 +200,47 @@ void PVV::ChunkManager::Render(PVG::GpuBuffer* camera_buffer, double time)
 	glClearTexImage(pointBuffer.GetID(), 0, GL_RED_INTEGER, GL_UNSIGNED_INT, nullptr);
 
 	out_draw_buffer.Clear(0, 4);
-	out_splats_buffer.Clear(0, 4);
+	out_splats_bufferX.Clear(0, 4);
+	out_splats_buffer1.Clear(0, 4);
+	out_splats_buffer2.Clear(0, 4);
+	out_splats_buffer5.Clear(0, 4);
+	out_splats_buffer10.Clear(0, 4);
 	out_occluded_draw_buf.Clear(0, 4);
 
 	PVG::GraphicsDevice::BindComputePipeline(bucketPipeline);
 	glDispatchCompute((draw_count + 63) / 64, 1, 1);
 	glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-	PVG::GraphicsDevice::BindComputePipeline(splatPipeline);
-	glDispatchComputeIndirect(0);
+	{
+		splatPipeline.SetIndirectBuffer(&out_splats_buffer1, 0, PVV::DrawCmdList::ListSize);
+		splatPipeline.SetSSBO(0, &out_splats_buffer1, 0, PVV::DrawCmdList::ListSize);
+		PVG::GraphicsDevice::BindComputePipeline(splatPipeline);
+		glDispatchComputeIndirect(0);
+	}
+	{
+		splatPipeline.SetIndirectBuffer(&out_splats_buffer2, 0, PVV::DrawCmdList::ListSize);
+		splatPipeline.SetSSBO(0, &out_splats_buffer2, 0, PVV::DrawCmdList::ListSize);
+		PVG::GraphicsDevice::BindComputePipeline(splatPipeline);
+		glDispatchComputeIndirect(0);
+	}
+	{
+		splatPipeline.SetIndirectBuffer(&out_splats_buffer5, 0, PVV::DrawCmdList::ListSize);
+		splatPipeline.SetSSBO(0, &out_splats_buffer5, 0, PVV::DrawCmdList::ListSize);
+		PVG::GraphicsDevice::BindComputePipeline(splatPipeline);
+		glDispatchComputeIndirect(0);
+	}
+	{
+		splatPipeline.SetIndirectBuffer(&out_splats_buffer10, 0, PVV::DrawCmdList::ListSize);
+		splatPipeline.SetSSBO(0, &out_splats_buffer10, 0, PVV::DrawCmdList::ListSize);
+		PVG::GraphicsDevice::BindComputePipeline(splatPipeline);
+		glDispatchComputeIndirect(0);
+	}
+	{
+		splatPipeline.SetIndirectBuffer(&out_splats_bufferX, 0, PVV::DrawCmdList::ListSize);
+		splatPipeline.SetSSBO(0, &out_splats_bufferX, 0, PVV::DrawCmdList::ListSize);
+		PVG::GraphicsDevice::BindComputePipeline(splatPipeline);
+		glDispatchComputeIndirect(0);
+	}
 	glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
 	PVG::GraphicsDevice::BindGraphicsPipeline(pipeline);
@@ -200,6 +253,10 @@ void PVV::ChunkManager::Render(PVG::GpuBuffer* camera_buffer, double time)
 
 	PVG::GraphicsDevice::MultiDrawIndirectCount(PVG::Topology::Points, 16, 0, PVV::DrawCmdList::Stride, draw_count);
 
+	PVG::GraphicsDevice::BindGraphicsPipeline(resolvePipeline);
+	glDisable(GL_CULL_FACE);
+	glDrawArrays(GL_TRIANGLES, 0, 3);
+
 	//Test occluded chunks against the current frame to fix false negatives
 	cur_mip_pyramid.BuildPyramid(camera_buffer);
 	PVG::GraphicsDevice::BindComputePipeline(occludedTestPipeline);
@@ -209,9 +266,6 @@ void PVV::ChunkManager::Render(PVG::GpuBuffer* camera_buffer, double time)
 	PVG::GraphicsDevice::BindGraphicsPipeline(occludedPipeline);
 	PVG::GraphicsDevice::MultiDrawIndirectCount(PVG::Topology::Points, 16, 0, PVV::DrawCmdList::Stride, draw_count);
 
-	PVG::GraphicsDevice::BindGraphicsPipeline(resolvePipeline);
-	glDisable(GL_CULL_FACE);
-	glDrawArrays(GL_TRIANGLES, 0, 3);
 
 
 	glBlitNamedFramebuffer(fbuf->GetID(), 0, 0, 0, 1024, 1024, 0, 0, 1024, 1024, GL_COLOR_BUFFER_BIT, GL_LINEAR);

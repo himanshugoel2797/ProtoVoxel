@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.9.4)
 project(ProtoVoxel VERSION 0.1.0)
 
 find_package(OpenGL REQUIRED)
+find_package(Vulkan REQUIRED)
 
 add_library(glad ${CMAKE_SOURCE_DIR}/glad/glad.c)
 target_include_directories(glad PRIVATE ${CMAKE_SOURCE_DIR})
@@ -19,7 +20,7 @@ set_target_properties(ProtoVoxel PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY ${CMAK
 
 target_compile_options(ProtoVoxel PRIVATE -mavx2 -mbmi)
 target_link_directories(ProtoVoxel PRIVATE ${CMAKE_SOURCE_DIR}/glfw/lib-vc2019)
-target_link_libraries(ProtoVoxel glfw glad imgui OpenGL::GL ${CMAKE_DL_LIBS})
+target_link_libraries(ProtoVoxel glfw glad imgui OpenGL::GL Vulkan::Vulkan ${CMAKE_DL_LIBS})
 target_compile_definitions(ProtoVoxel PRIVATE DEBUG)
 target_compile_definitions(ProtoVoxel PRIVATE _USE_MATH_DEFINES)
 target_include_directories(ProtoVoxel PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/glfw/include)

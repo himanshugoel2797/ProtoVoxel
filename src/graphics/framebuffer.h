@@ -32,9 +32,15 @@ namespace ProtoVoxel::Graphics
         void Attach(GLenum attachment, Texture const &tex, int level, int layer);
         void DrawBuffers(int n, const GLenum *attachments);
 
+        inline void SetName(const char* name);
+
         uint32_t GetID() const
         {
             return id;
         }
     };
 } // namespace ProtoVoxel::Graphics
+
+void ProtoVoxel::Graphics::Framebuffer::SetName(const char* name) {
+    glObjectLabel(GL_FRAMEBUFFER, id, strnlen_s(name, 16384), name);
+}

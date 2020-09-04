@@ -48,7 +48,39 @@ layout(std430, binding = 1) restrict coherent buffer OutDrawCalls_t{
 	draw_cmd_t cmds[];
 } out_draws;
 
-layout(std430, binding = 2) restrict coherent buffer Splats_t{
+layout(std430, binding = 2) restrict coherent buffer Splats1_t{
+	uint cnt;
+	uint pd0;
+	uint pd1;
+	uint pd2;
+	draw_cmd_t cmds[];
+} splats1;
+
+layout(std430, binding = 3) restrict coherent buffer Splats2_t{
+	uint cnt;
+	uint pd0;
+	uint pd1;
+	uint pd2;
+	draw_cmd_t cmds[];
+} splats2;
+
+layout(std430, binding = 4) restrict coherent buffer Splats5_t{
+	uint cnt;
+	uint pd0;
+	uint pd1;
+	uint pd2;
+	draw_cmd_t cmds[];
+} splats5;
+
+layout(std430, binding = 5) restrict coherent buffer Splats10_t{
+	uint cnt;
+	uint pd0;
+	uint pd1;
+	uint pd2;
+	draw_cmd_t cmds[];
+} splats10;
+
+layout(std430, binding = 6) restrict coherent buffer SplatsX_t{
 	uint cnt;
 	uint pd0;
 	uint pd1;
@@ -56,7 +88,7 @@ layout(std430, binding = 2) restrict coherent buffer Splats_t{
 	draw_cmd_t cmds[];
 } splats;
 
-layout(std430, binding = 3) restrict coherent buffer Rejects_t{
+layout(std430, binding = 7) restrict coherent buffer Rejects_t{
 	uint cnt;
 	uint pd0;
 	uint pd1;
@@ -74,7 +106,14 @@ void main(){
 
     rejects.pd1 = rejects.pd2 = 1;
     out_draws.pd0 = out_draws.pd1 = out_draws.pd2 = 1;
-    splats.pd1 = 1;
+    splats1.pd1 = splats2.pd1 = splats5.pd1 = splats10.pd1 = splats.pd1 = 1;
+    splats1.pd2 = splats2.pd2 = splats5.pd2 = splats10.pd2 = splats.pd2 = 1;
+
+    splats1.pd0 = 1;
+    splats2.pd0 = 2;
+    splats5.pd0 = 5;
+    splats10.pd0 = 10;
+
     
     vec3 min_bnd = in_draws.cmds[DrawID].min_bnd.xyz;
     vec3 max_bnd = in_draws.cmds[DrawID].max_bnd.xyz;
@@ -146,13 +185,43 @@ vec4 offsets[8] = vec4[] (
             } else if (max_rad <= 2 * bnd_sz)
             {
                 //Splat voxels via compute
-                uint idx = atomicAdd(splats.cnt, 1);
-                atomicMax(splats.pd0, int(in_draws.cmds[DrawID].count + 255) / 256 );
-                splats.cmds[idx].count = in_draws.cmds[DrawID].count;
-                splats.cmds[idx].instanceCount = 1;
-                splats.cmds[idx].baseVertex = in_draws.cmds[DrawID].baseVertex;
-                splats.cmds[idx].baseInstance = 0;
-                splats.cmds[idx].pos = in_draws.cmds[DrawID].pos;
+                if (in_draws.cmds[DrawID].count <= 128){
+                    uint idx = atomicAdd(splats1.cnt, 1);
+                    splats1.cmds[idx].count = in_draws.cmds[DrawID].count;
+                    splats1.cmds[idx].instanceCount = 1;
+                    splats1.cmds[idx].baseVertex = in_draws.cmds[DrawID].baseVertex;
+                    splats1.cmds[idx].baseInstance = 0;
+                    splats1.cmds[idx].pos = in_draws.cmds[DrawID].pos;
+                }else if(in_draws.cmds[DrawID].count <= 2 * 128){
+                    uint idx = atomicAdd(splats2.cnt, 1);
+                    splats2.cmds[idx].count = in_draws.cmds[DrawID].count;
+                    splats2.cmds[idx].instanceCount = 1;
+                    splats2.cmds[idx].baseVertex = in_draws.cmds[DrawID].baseVertex;
+                    splats2.cmds[idx].baseInstance = 0;
+                    splats2.cmds[idx].pos = in_draws.cmds[DrawID].pos;
+                }else if(in_draws.cmds[DrawID].count <= 5 * 128){
+                    uint idx = atomicAdd(splats5.cnt, 1);
+                    splats5.cmds[idx].count = in_draws.cmds[DrawID].count;
+                    splats5.cmds[idx].instanceCount = 1;
+                    splats5.cmds[idx].baseVertex = in_draws.cmds[DrawID].baseVertex;
+                    splats5.cmds[idx].baseInstance = 0;
+                    splats5.cmds[idx].pos = in_draws.cmds[DrawID].pos;
+                }else if(in_draws.cmds[DrawID].count <= 10 * 128){
+                    uint idx = atomicAdd(splats10.cnt, 1);
+                    splats10.cmds[idx].count = in_draws.cmds[DrawID].count;
+                    splats10.cmds[idx].instanceCount = 1;
+                    splats10.cmds[idx].baseVertex = in_draws.cmds[DrawID].baseVertex;
+                    splats10.cmds[idx].baseInstance = 0;
+                    splats10.cmds[idx].pos = in_draws.cmds[DrawID].pos;
+                }else{
+                    uint idx = atomicAdd(splats.cnt, 1);
+                    atomicMax(splats.pd0, int(in_draws.cmds[DrawID].count + 127) / 128 );
+                    splats.cmds[idx].count = in_draws.cmds[DrawID].count;
+                    splats.cmds[idx].instanceCount = 1;
+                    splats.cmds[idx].baseVertex = in_draws.cmds[DrawID].baseVertex;
+                    splats.cmds[idx].baseInstance = 0;
+                    splats.cmds[idx].pos = in_draws.cmds[DrawID].pos;
+                }
             }else
             {
                 //Splat voxels via raster

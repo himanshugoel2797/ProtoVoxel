@@ -53,7 +53,11 @@ namespace ProtoVoxel::Voxel
         ProtoVoxel::Graphics::ComputePipeline bucketPipeline;
         ProtoVoxel::Graphics::ShaderProgram bucket_prog;
         ProtoVoxel::Graphics::GpuBuffer out_draw_buffer;
-        ProtoVoxel::Graphics::GpuBuffer out_splats_buffer;
+        ProtoVoxel::Graphics::GpuBuffer out_splats_buffer1;
+        ProtoVoxel::Graphics::GpuBuffer out_splats_buffer2;
+        ProtoVoxel::Graphics::GpuBuffer out_splats_buffer5;
+        ProtoVoxel::Graphics::GpuBuffer out_splats_buffer10;
+        ProtoVoxel::Graphics::GpuBuffer out_splats_bufferX;
 
         ProtoVoxel::Graphics::ComputePipeline splatPipeline;
         ProtoVoxel::Graphics::ShaderProgram splat_prog;

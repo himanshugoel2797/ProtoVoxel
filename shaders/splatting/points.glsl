@@ -1,7 +1,7 @@
 //ComputeShader
 #version 460
 
-layout (local_size_x = 1, local_size_y = 256) in;
+layout (local_size_x = 1, local_size_y = 128) in;
 
 // Values that stay constant for the whole mesh.
 layout(std140, binding = 0) uniform GlobalParams_t {

@@ -15,6 +15,7 @@ PVSG::SceneBase::~SceneBase()
 void PVSG::SceneBase::Initialize()
 {
     camera_buffer.SetStorage(sizeof(PVC::GlobalParameters), GL_DYNAMIC_STORAGE_BIT);
+    camera_buffer.SetName("GlobalParameters");
 }
 
 void PVSG::SceneBase::UpdateStart(double time)

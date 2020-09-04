@@ -2,6 +2,7 @@
 #include "glad/glad.h"
 #include <stddef.h>
 #include <stdint.h>
+#include <memory>
 
 namespace ProtoVoxel::Graphics {
     class Texture {
@@ -20,6 +21,8 @@ namespace ProtoVoxel::Graphics {
         void SetStorage(GLenum target, int levels, int internalFormat, size_t w);
         void Clear(int lv, int internalFormat);
 
+        inline void SetName(const char* name);
+        
         GLenum GetTarget() const {
             return target;
         }
@@ -28,3 +31,7 @@ namespace ProtoVoxel::Graphics {
         }
     };
 } // namespace ProtoVoxel::Graphics
+
+void ProtoVoxel::Graphics::Texture::SetName(const char* name) {
+    glObjectLabel(GL_TEXTURE, id, strnlen_s(name, 16384), name);
+}
