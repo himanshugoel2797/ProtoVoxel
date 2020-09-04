@@ -6,7 +6,7 @@ class Frustum
 public:
 	Frustum() {}
 
-	// m = ProjectionMatrix * ViewMatrix 
+	// m = inverse(ProjectionMatrix * ViewMatrix)
 	Frustum(glm::mat4 m);
 
 	// http://iquilezles.org/www/articles/frustumcorrect/frustumcorrect.htm

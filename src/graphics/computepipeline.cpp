@@ -16,6 +16,7 @@ PVG::ComputePipeline::ComputePipeline() {
         textures[i].valid = false;
         images[i].valid = false;
     }
+    indirectBuffer.valid = false;
 }
 
 PVG::ComputePipeline::~ComputePipeline() {

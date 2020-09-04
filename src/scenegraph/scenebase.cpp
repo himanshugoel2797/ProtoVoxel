@@ -19,6 +19,7 @@ void PVSG::SceneBase::Initialize()
 
 void PVSG::SceneBase::UpdateStart(double time)
 {
+    PVC::Input::Update(time);
     camera.Update(time);
     camera_buffer.Update(0, sizeof(PVC::GlobalParameters), camera.GetParameters());
 }

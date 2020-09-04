@@ -39,8 +39,8 @@ namespace ProtoVoxel::Core
 
         glm::vec2 mousePos;
 
-        float leftrightRot = M_PI_2;
-        float updownRot = -M_PI / 10.0f;
+        float leftrightRot = 0;
+        float updownRot = 0;
 
         int UpBinding;
         int DownBinding;

@@ -1,6 +1,7 @@
+//ComputeShader
 #version 460
 
-layout (local_size_x = 256, local_size_y = 1) in;
+layout (local_size_x = 1, local_size_y = 256) in;
 
 // Values that stay constant for the whole mesh.
 layout(std140, binding = 0) uniform GlobalParams_t {
@@ -21,11 +22,7 @@ layout(std140, binding = 0) uniform GlobalParams_t {
         vec4 eyeRight;
 } GlobalParams;
 
-layout(std430, binding = 0) readonly restrict buffer ChunkOffsets_t {
-    ivec4 v[];
-} ChunkOffsets;
-
-layout(std430, binding = 2) readonly restrict buffer Voxels_t {
+layout(std430, binding = 1) readonly restrict buffer Voxels_t {
     uint v[];
 } vxls;
 
@@ -34,9 +31,12 @@ struct draw_cmd_t {
 	uint instanceCount;
 	uint baseVertex;
 	uint baseInstance;
+    ivec4 pos;
+    ivec4 min_bnd;
+    ivec4 max_bnd;
 };
 
-layout(std430, binding = 1) readonly restrict buffer InDrawCalls_t{
+layout(std430, binding = 0) readonly restrict buffer InDrawCalls_t{
 	uint cnt;
 	uint pd0;
 	uint pd1;
@@ -51,13 +51,12 @@ void main(){
 	uint DrawID = gl_GlobalInvocationID.x;
     if (DrawID >= in_draws.cnt)
         return;
+    if (in_draws.cmds[DrawID].count < gl_GlobalInvocationID.y)
+        return;
 
     ivec2 imgSize = imageSize(pointBuffer);
-    uint VertexID = in_draws.cmds[DrawID].baseVertex;
-    for (int i = 0; i < 256; i++){
-            if (in_draws.cmds[DrawID].count <= i)
-                return;
-
+    uint VertexID = in_draws.cmds[DrawID].baseVertex + gl_GlobalInvocationID.y;
+    
             uint vID = vxls.v[VertexID];
             float x = float((vID >> 19u) & 0x1fu);
             float y = float((vID >> 8u) & 0x3fu);
@@ -66,9 +65,9 @@ void main(){
             uint mat_idx = uint((vID) & 0x7fu);
 
             vec3 UV;
-            UV.x = x + ChunkOffsets.v[DrawID].x;
-            UV.y = y + ChunkOffsets.v[DrawID].y;
-            UV.z = z + ChunkOffsets.v[DrawID].z;
+            UV.x = x + in_draws.cmds[DrawID].pos.x;
+            UV.y = y + in_draws.cmds[DrawID].pos.y;
+            UV.z = z + in_draws.cmds[DrawID].pos.z;
             
             vec4 ppos = GlobalParams.vp * vec4(UV, 1);
             ppos /= ppos.w;
@@ -84,5 +83,4 @@ void main(){
             }
 
             VertexID ++;
-    }
 }

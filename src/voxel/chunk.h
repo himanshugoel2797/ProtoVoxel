@@ -18,6 +18,7 @@ namespace ProtoVoxel::Voxel
     };
 
     class ChunkUpdater;
+    class ChunkJobManager;
 
     class Chunk
     {
@@ -51,21 +52,26 @@ namespace ProtoVoxel::Voxel
         uint16_t regional_voxel_cnt[RegionCount];
         
         glm::ivec3 position;
+        glm::ivec3 min_bound;
+        glm::ivec3 max_bound;
         uint8_t *compressed_data;
         uint32_t compressed_len;
 
         ChunkStatus status;
         uint32_t loopback_cnt;
-        uint32_t* mesh_area_ptr;
+        uint32_t mesh_area_ptr;
         uint32_t mesh_area_len;
 
+        uint32_t id;
+
         friend class ChunkUpdater;
+        friend class ChunkJobManager;
 
     public:
         Chunk();
         ~Chunk();
 
-        void Initialize();
+        void Initialize(uint32_t id);
 
         void SetPosition(glm::ivec3 &pos);
         glm::ivec3 &GetPosition();

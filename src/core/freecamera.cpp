@@ -3,8 +3,8 @@
 
 namespace PVC = ProtoVoxel::Core;
 
-float rotationSpeed = 0.2f;
-float moveSpeed = 0.5f;
+float rotationSpeed = 20.0f;
+float moveSpeed = 1.0f;
 
 glm::mat4 MakeInfReversedZProjRH(float fovY_radians, float aspectWbyH, float zNear)
 {
@@ -30,6 +30,7 @@ PVC::FreeCamera::FreeCamera()
     pos = glm::vec3(-1, 0, 0);
     dir = glm::vec3(1, 0, 0);
     up = glm::vec3(0, 1, 0);
+    camRotUp = up;
 
     params.eyePos = glm::vec4(pos, 1);
     params.eyeDir = glm::vec4(dir, 0);
@@ -46,19 +47,14 @@ struct PVC::GlobalParameters *PVC::FreeCamera::GetParameters()
 
 glm::mat4 PVC::FreeCamera::UpdateViewMatrix()
 {
-    glm::mat4 cameraRotation(1.0f);
-    cameraRotation = glm::rotate(cameraRotation, updownRot, glm::vec3(1, 0, 0));
-    cameraRotation = glm::rotate(cameraRotation, leftrightRot, glm::vec3(0, 1, 0));
+    glm::vec3 dir;
+    dir.x = cosf(leftrightRot) * cosf(updownRot);
+    dir.y = sinf(updownRot);
+    dir.z = sinf(leftrightRot) * cosf(updownRot);
+    this->dir = glm::normalize(dir);
 
-    glm::vec4 cameraOriginalTarget(0, 0, 1, 0);
-    glm::vec4 cameraOriginalUpVector(0, 1, 0, 0);
-
-    dir = cameraRotation * cameraOriginalTarget;
-    glm::vec3 cameraFinalTarget = pos + dir;
-
-    camRotUp = cameraRotation * cameraOriginalUpVector;
-
-    return glm::lookAt(pos, cameraFinalTarget, camRotUp);
+    glm::vec3 cameraFinalTarget = pos + this->dir;
+    return glm::lookAt(pos, cameraFinalTarget, up);
 }
 
 void PVC::FreeCamera::Update(double time)
@@ -73,14 +69,14 @@ void PVC::FreeCamera::Update(double time)
     glm::vec2 latestMousePos;
     PVC::Input::GetMousePosition(latestMousePos);
 
-    if (PVC::Input::IsMouseDown(PVC::MouseButton::Left))
+    if (PVC::Input::IsCursorLocked())
     {
         if (abs(mousePos.x - latestMousePos.x) > 0)
             leftrightRot -= (float)glm::radians(rotationSpeed * (mousePos.x - latestMousePos.x) * time / 1000.0f);
         if (abs(mousePos.y - latestMousePos.y) > 0)
             updownRot -= (float)glm::radians(rotationSpeed * (mousePos.y - latestMousePos.y) * time / 1000.0f);
     }
-    else
+    //else
     {
         mousePos = latestMousePos;
     }
@@ -117,11 +113,11 @@ void PVC::FreeCamera::Update(double time)
 
     if (PVC::Input::IsKeyDown(AccelerateBinding))
     {
-        moveSpeed += 0.02f * moveSpeed;
+        moveSpeed += moveSpeed * time / 1000.0f;
     }
     else if (PVC::Input::IsKeyDown(DecelerateBinding))
     {
-        moveSpeed -= 0.02f * moveSpeed;
+        moveSpeed -= moveSpeed * time / 1000.0f;
     }
     //#endif
 

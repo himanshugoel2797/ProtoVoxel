@@ -14,8 +14,9 @@ PVV::Chunk::Chunk()
     compressed_data = nullptr;
 }
 
-void PVV::Chunk::Initialize()
+void PVV::Chunk::Initialize(uint32_t id)
 {
+    this->id = id;
     set_voxel_cnt = 0;
     border_voxel_cnt = 0;
     memset(regional_voxel_cnt, 0, sizeof(regional_voxel_cnt));

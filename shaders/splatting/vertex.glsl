@@ -22,15 +22,29 @@ layout(std140, binding = 0) uniform GlobalParams_t {
         vec4 eyeRight;
 } GlobalParams;
 
-layout(std430, binding = 2) readonly restrict buffer Voxels_t {
+layout(std430, binding = 1) readonly restrict buffer Voxels_t {
     uint v[];
 } Voxels;
 
-layout(std430, binding = 1) readonly restrict buffer ChunkOffsets_t {
-    ivec4 v[];
-} ChunkOffsets;
+struct draw_cmd_t {
+	uint count;
+	uint instanceCount;
+	uint baseVertex;
+	uint baseInstance;
+    ivec4 pos;
+    ivec4 min_bnd;
+    ivec4 max_bnd;
+};
 
-layout(std140, binding = 2) uniform ColorPalette_t{
+layout(std430, binding = 0) readonly restrict buffer InDrawCalls_t{
+	uint cnt;
+	uint pd0;
+	uint pd1;
+	uint pd2;
+	draw_cmd_t cmds[];
+} in_draws;
+
+layout(std140, binding = 1) uniform ColorPalette_t{
         vec4 v[256];
 } ColorPalette;
 
@@ -48,9 +62,9 @@ void main(){
 
             int mat_idx = int((vID) & 0x7fu);
 
-            UV.x = x + ChunkOffsets.v[gl_DrawID].x;
-            UV.y = y + ChunkOffsets.v[gl_DrawID].y;
-            UV.z = z + ChunkOffsets.v[gl_DrawID].z;
+            UV.x = x + in_draws.cmds[gl_DrawID].pos.x;
+            UV.y = y + in_draws.cmds[gl_DrawID].pos.y;
+            UV.z = z + in_draws.cmds[gl_DrawID].pos.z;
             eyePos_rel = GlobalParams.eyePos.xyz - UV;
 
             color_vs = ColorPalette.v[mat_idx];
@@ -86,7 +100,7 @@ void main(){
 
             vec2 dvec0 = (max_comps - min_comps);
             float max_radius = max(dvec0.x, dvec0.y) * 0.5f;
-            gl_PointSize = 1024.0f * max_radius;
+            gl_PointSize = 1024.0f * max_radius * 1.1f;
 
             //gl_Position = vec4(x, y, z, 1);
             gl_Position = GlobalParams.vp * vec4(UV, 1);

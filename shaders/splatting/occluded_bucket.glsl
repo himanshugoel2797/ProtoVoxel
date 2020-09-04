@@ -1,7 +1,7 @@
 //ComputeShader
 #version 460
 
-layout (local_size_x = 1024, local_size_y = 1) in;
+layout (local_size_x = 64, local_size_y = 1) in;
 
 // Values that stay constant for the whole mesh.
 layout(std140, binding = 0) uniform GlobalParams_t {
@@ -22,22 +22,17 @@ layout(std140, binding = 0) uniform GlobalParams_t {
         vec4 eyeRight;
 } GlobalParams;
 
-layout(std430, binding = 0) readonly restrict buffer ChunkOffsets_t {
-    ivec4 v[];
-} ChunkOffsets;
-
-layout(std430, binding = 3) writeonly restrict buffer OutOffsets_t {
-    ivec4 v[];
-} OutOffsets;
-
 struct draw_cmd_t {
 	uint count;
 	uint instanceCount;
 	uint baseVertex;
 	uint baseInstance;
+    ivec4 pos;
+    ivec4 min_bnd;
+    ivec4 max_bnd;
 };
 
-layout(std430, binding = 1) readonly restrict buffer InDrawCalls_t{
+layout(std430, binding = 0) readonly restrict buffer InDrawCalls_t{
 	uint cnt;
 	uint pd0;
 	uint pd1;
@@ -45,7 +40,7 @@ layout(std430, binding = 1) readonly restrict buffer InDrawCalls_t{
 	draw_cmd_t cmds[];
 } in_draws;
 
-layout(std430, binding = 2) restrict coherent buffer OutDrawCalls_t{
+layout(std430, binding = 1) restrict coherent buffer OutDrawCalls_t{
 	uint cnt;
 	uint pd0;
 	uint pd1;
@@ -55,23 +50,27 @@ layout(std430, binding = 2) restrict coherent buffer OutDrawCalls_t{
 
 uniform layout(binding = 0) sampler2D hiz_map;
 
-vec4 offsets[8] = vec4[] (
-    vec4(15, 31, 15, 0),
-    vec4(15, 31, -15, 0),
-    vec4(15, -31, 15, 0),
-    vec4(15, -31, -15, 0),
-    vec4(-15, 31, 15, 0),
-    vec4(-15, 31, -15, 0),
-    vec4(-15, -31, 15, 0),
-    vec4(-15, -31, -15, 0)
-);
-
 void main(){
 	uint DrawID = gl_GlobalInvocationID.x;
     if (DrawID >= in_draws.cnt)
         return;
     
-    vec3 UV = vec3(ChunkOffsets.v[DrawID].x + 15, ChunkOffsets.v[DrawID].y + 31, ChunkOffsets.v[DrawID].z + 15);
+    
+    vec3 min_bnd = in_draws.cmds[DrawID].min_bnd.xyz;
+    vec3 max_bnd = in_draws.cmds[DrawID].max_bnd.xyz;
+
+vec4 offsets[8] = vec4[] (
+    vec4(max_bnd.x, max_bnd.y, max_bnd.z, 0),
+    vec4(max_bnd.x, max_bnd.y, min_bnd.z, 0),
+    vec4(max_bnd.x, min_bnd.y, max_bnd.z, 0),
+    vec4(max_bnd.x, min_bnd.y, min_bnd.z, 0),
+    vec4(min_bnd.x, max_bnd.y, max_bnd.z, 0),
+    vec4(min_bnd.x, max_bnd.y, min_bnd.z, 0),
+    vec4(min_bnd.x, min_bnd.y, max_bnd.z, 0),
+    vec4(min_bnd.x, min_bnd.y, min_bnd.z, 0)
+);
+
+    vec3 UV = vec3(in_draws.cmds[DrawID].pos.x, in_draws.cmds[DrawID].pos.y, in_draws.cmds[DrawID].pos.z);
 	vec4 bbox;
     bbox = GlobalParams.vp * (vec4(UV, 1) + offsets[0]);
     bbox /= bbox.w;
@@ -106,18 +105,15 @@ void main(){
             samples.w = textureLod(hiz_map, vec2(max_comps.x, min_comps.y), lod).x;
             float sampledDepth = min(min(samples.x, samples.y), min(samples.z, samples.w));
             //min=farthest point, max=nearest point
-
-            if (max_rad == 0)  //Out of view
-                return;
     
             if (sampledDepth <= max_comps.z)    //If the chunk is fully behind the sampled depth, don't render it
             {
                 //Splat voxels via raster
                 uint idx = atomicAdd(out_draws.cnt, 1);
                 out_draws.cmds[idx].count = in_draws.cmds[DrawID].count;
-                out_draws.cmds[idx].instanceCount = in_draws.cmds[DrawID].instanceCount;
+                out_draws.cmds[idx].instanceCount = 1;
                 out_draws.cmds[idx].baseVertex = in_draws.cmds[DrawID].baseVertex;
-                out_draws.cmds[idx].baseInstance = in_draws.cmds[DrawID].baseInstance;
-                OutOffsets.v[idx] = ChunkOffsets.v[DrawID];
+                out_draws.cmds[idx].baseInstance = 0;
+                out_draws.cmds[idx].pos = in_draws.cmds[DrawID].pos;
              }
 }

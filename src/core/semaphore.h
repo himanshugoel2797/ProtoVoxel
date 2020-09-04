@@ -19,7 +19,7 @@ namespace ProtoVoxel::Core
 		sem_t sema;
 #endif
 	public:
-		inline Semaphore(uint32_t initvalue = 0, uint32_t maxvalue = 1024)
+		inline Semaphore(uint32_t initvalue = 0, uint32_t maxvalue = 0x7fffffff)
 		{
 #if _WIN32
 			sema = CreateSemaphore(nullptr, initvalue, maxvalue, nullptr);

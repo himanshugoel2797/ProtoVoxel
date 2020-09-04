@@ -1,10 +1,11 @@
 #include "rle.h"
 #include <immintrin.h>
+#include <stdio.h>
 
 uint32_t rle_encode(uint8_t *raw_Data, uint32_t len, uint8_t *dst)
 {
     uint64_t *raw_Data_u64 = (uint64_t *)raw_Data;
-    int32_t c_runLen = 0;
+    int32_t c_runLen = 1;
     uint32_t c_val = raw_Data[0];
     __m256i cur_val;
     __m256i next_val = _mm256_load_si256((__m256i *)&raw_Data_u64[0]);
@@ -41,13 +42,14 @@ uint32_t rle_encode(uint8_t *raw_Data, uint32_t len, uint8_t *dst)
                 {
                     do
                     {
-                        uint8_t c_r = c_runLen >= 255;
-                        comp_ptr[0] = c_r ? 255 : c_runLen;
-                        c_runLen -= c_r ? 255 : c_runLen;
+                        uint8_t c_r = c_runLen >= 256;
+                        comp_ptr[0] = (c_r ? 256 : c_runLen) - 1;
+                        c_runLen -= c_r ? 256 : c_runLen;
                         comp_ptr[1] = c_val;
                         comp_ptr += 2;
                     } while (c_runLen > 0);
                     c_val = raw_Data[1 - avail_bits];
+                    c_runLen = 1;
                 }
                 avail_bits--;
                 equality_mask >>= 1;
@@ -61,7 +63,6 @@ uint32_t rle_encode(uint8_t *raw_Data, uint32_t len, uint8_t *dst)
         comp_ptr[1] = c_val;
         comp_ptr += 2;
     }
-
     return (comp_ptr - dst);
 }
 
@@ -187,6 +188,5 @@ uint32_t rle_decode(uint8_t *comp_data_space, uint32_t rle_len,
             }
         }
     }
-
     return iter;
 }

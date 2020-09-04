@@ -9,6 +9,8 @@
 
 #include "voxel/PerlinNoise.h"
 
+#include "imgui/imgui.h"
+
 #include <chrono>
 #include <fstream>
 #include <iostream>
@@ -30,13 +32,11 @@ public:
 
     PVV::ChunkPalette palette;
     PVV::ChunkManager manager;
-    PVV::ChunkJobManager jobManager;
-
+    
     void Initialize() override
     {
         PVSG::SceneBase::Initialize();
 
-        jobManager.Initialize();
         palette.Initialize();
         for (int i = 255; i >= 0; i--)
             palette.Register(glm::vec4(0, i / 255.0, 0, 1));
@@ -53,6 +53,14 @@ public:
     void Render(double time) override
     {
         manager.Render(PVSG::SceneBase::camera_buffer.GetBuffer(), time);
+
+        auto tmp = camera.GetParameters()->eyePos;
+        
+        ImGui::Begin("Camera Info");
+        ImGui::Text("Camera Position: %f, %f, %f\n", tmp.x, tmp.y, tmp.z);
+        tmp = camera.GetParameters()->eyeDir;
+        ImGui::Text("Camera Direction: %f, %f, %f\n", tmp.x, tmp.y, tmp.z);
+        ImGui::End();
     }
 };
 

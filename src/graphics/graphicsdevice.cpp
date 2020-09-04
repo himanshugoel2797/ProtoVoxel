@@ -131,7 +131,7 @@ void PVG::GraphicsDevice::BindComputePipeline(
 		{
 			boundIndirectBuffer = pipeline.indirectBuffer.buffer;
 			auto indir_ptr = boundIndirectBuffer;
-			glBindBuffer(GL_DRAW_INDIRECT_BUFFER, indir_ptr->GetID());
+			glBindBuffer(GL_DISPATCH_INDIRECT_BUFFER, indir_ptr->GetID());
 			glBindBuffer(GL_PARAMETER_BUFFER, indir_ptr->GetID());
 		}
 	}

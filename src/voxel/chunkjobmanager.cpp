@@ -1,4 +1,6 @@
 #include "chunkjobmanager.h"
+#include "PerlinNoise.h"
+#include "core/frustumcull.h"
 
 namespace PVV = ProtoVoxel::Voxel;
 
@@ -14,10 +16,12 @@ PVV::ChunkJobManager::ChunkJobManager() : semaphore()
 
 PVV::ChunkJobManager::~ChunkJobManager() {}
 
-void PVV::ChunkJobManager::Initialize()
+void PVV::ChunkJobManager::Initialize(MeshMalloc* mesh_mem_ptr, DrawCmdList* cmd_list_ptr)
 {
-	proc_cnt = std::thread::hardware_concurrency();
-	if (proc_cnt == 0)
+	mesh_mem = mesh_mem_ptr;
+	cmd_list = cmd_list_ptr;
+	proc_cnt = std::thread::hardware_concurrency() - 1;
+	if (proc_cnt <= 0)
 		proc_cnt = 8;
 
 	current = new struct JobQueue();
@@ -30,23 +34,51 @@ void PVV::ChunkJobManager::Initialize()
 	}
 }
 
-void PVV::ChunkJobManager::RequestRemesh(PVV::Chunk *chnk)
+void PVV::ChunkJobManager::RequestRemesh(PVV::Chunk* chnk)
 {
-
 	ChunkJob job;
 	job.target_chunk = chnk;
+	job.chunk_id = chnk->id;
 	job.type = ChunkJobType::CompileMesh;
 
 	next->queue_guard.lock();
+	next->unique_chunks.insert(chnk->id);
+	next->jobs.push(job);
+	next->queue_guard.unlock();
+}
+
+void PVV::ChunkJobManager::RequestBuild(PVV::Chunk* chnk)
+{
+	ChunkJob job;
+	job.target_chunk = chnk;
+	job.chunk_id = chnk->id;
+	job.type = ChunkJobType::BuildChunk;
+
+	next->queue_guard.lock();
+	next->unique_chunks.insert(chnk->id);
+	next->jobs.push(job);
+	next->queue_guard.unlock();
+}
+
+void PVV::ChunkJobManager::RequestCull(PVV::Chunk* chnk, glm::mat4& ivp)
+{
+	ChunkJob job;
+	job.target_chunk = chnk;
+	job.chunk_id = chnk->id;
+	job.type = ChunkJobType::CullChunk;
+	job.ivp = ivp;
+
+	next->queue_guard.lock();
+	next->unique_chunks.insert(chnk->id);
 	next->jobs.push(job);
 	next->queue_guard.unlock();
 }
 
 void PVV::ChunkJobManager::JobRunner(int tid)
 {
-	ChunkUpdater &updater = chunkers[tid].updater;
+	ChunkUpdater& updater = chunkers[tid].updater;
 	std::queue<struct ChunkJob> current_jobs;
-	struct JobQueue *cur_q = current;
+	struct JobQueue* cur_q = current;
 	while (true)
 	{
 		semaphore.Decrement();
@@ -54,6 +86,7 @@ void PVV::ChunkJobManager::JobRunner(int tid)
 		{
 			cur_q = current; //reload the pointer
 			finishedJobCount++;
+			swap_tracker.Decrement();	//only allow a thread to execute this once
 		}
 		else
 		{
@@ -63,8 +96,6 @@ void PVV::ChunkJobManager::JobRunner(int tid)
 			cur_q->jobs.pop();
 			while (cur_q->jobs.size() > 0 && cur_q->jobs.top().chunk_id == current_jobs.front().chunk_id)
 			{
-				semaphore.Decrement();
-
 				job = cur_q->jobs.top();
 				current_jobs.push(job);
 				cur_q->jobs.pop();
@@ -73,39 +104,90 @@ void PVV::ChunkJobManager::JobRunner(int tid)
 		}
 
 		//execute the requested job on the chunk
-		for (int i = 0; i < current_jobs.size(); i++)
+		bool first_run = true;
+		while (current_jobs.size() > 0)
 		{
 			auto job = current_jobs.front();
 			current_jobs.pop();
 
-			updater.UnpackChunk(job.target_chunk);
+			if (first_run) {
+				updater.UnpackChunk(job.target_chunk);
+				first_run = false;
+			}
 			switch (job.type)
 			{
+			case ChunkJobType::BuildChunk:
+			{
+				siv::PerlinNoise noise(0);
+				auto posvec = job.target_chunk->GetPosition();
+				for (int x = -1; x < 31; x++)
+					for (int z = -1; z < 31; z++)
+						for (int y = -1; y < 63; y++)
+						{
+							auto d = noise.noise3D_0_1((posvec.x + x) * 0.005, (posvec.y + y) * 0.005, (posvec.z + z) * 0.005);
+
+							//float off = 10;
+							//if (fabsf((x - off) * (x - off) + (y - off) * (y - off) + (z - off) * (z - off)) < 10)
+							//	d = 1;
+
+							if (d > 0.5)
+								//auto d = noise.noise3D_0_1((posvec.x + x) * 0.005, 0 * 0.005, (posvec.z + z) * 0.005);
+								//for (int y = posvec.y; y < d * 240 && y < posvec.y + 64; y++)
+								updater.SetBlock(x + 1, y + 1, z + 1, 1);
+							//else
+							//	updater.SetBlock(x + 1, y + 1, z + 1, 0);
+						}
+			}
+			break;
 			case ChunkJobType::CompileMesh:
 			{
-				//Allocate temporary buffer locally
-				//Copy exact sized allocation into global mesh pool
+				uint32_t loopback_cntr = 0;
+
+				//Allocate buffer
+				auto count = updater.GetCompiledLength();
+				auto mem_blk = mesh_mem->Alloc(count, &loopback_cntr);
+				updater.Compile(mem_blk, job.target_chunk->min_bound, job.target_chunk->max_bound);
+				mesh_mem->Flush(mem_blk, count);
+
 				//Record mesh info into chunk
+				job.target_chunk->status = ChunkStatus::None;
+				job.target_chunk->loopback_cnt = loopback_cntr;
+				job.target_chunk->mesh_area_ptr = mesh_mem->GetOffset(mem_blk);
+				job.target_chunk->mesh_area_len = count;
 			}
 			break;
 			case ChunkJobType::SetBlock:
 
 				break;
+			case ChunkJobType::CullChunk:
+			{
+				//TODO: Check if chunk has been overwritten in buffer and remesh if so
+				//Frustum f(job.ivp);
+				//if (f.IsBoxVisible(glm::vec3(job.target_chunk->GetPosition()), glm::vec3(job.target_chunk->GetPosition()) + glm::vec3(30, 62, 30)))
+					cmd_list->RecordDraw(job.target_chunk->mesh_area_len, 0, job.target_chunk->mesh_area_ptr, 0, 1, job.target_chunk->position, job.target_chunk->min_bound, job.target_chunk->max_bound);
+			}
+			break;
 			}
 			finishedJobCount++;
+			finished_job_tracker.Increment(1);
 		}
 	}
 }
 
+void PVV::ChunkJobManager::FinishCurrentTasks() {
+	//Wait for all jobs to finish
+	for (int i = 0; i < totalJobCount; i++)
+		finished_job_tracker.Decrement();
+	//while (finishedJobCount != totalJobCount)
+	//	;
+}
+
 void PVV::ChunkJobManager::EndFrame()
 {
-	//Wait for all jobs to finish
-	while (finishedJobCount != totalJobCount)
-		;
 	//Swap queues
 	auto tmp = current;
 	current = next;
-	next = current;
+	next = tmp;
 
 	reloadCurrent = true;
 	finishedJobCount = 0;
@@ -115,12 +197,14 @@ void PVV::ChunkJobManager::EndFrame()
 	//Wait for all threads to swap
 	while (finishedJobCount != totalJobCount)
 		;
+	swap_tracker.Increment(proc_cnt);	//Allow all threads to proceed
 
 	//Start running next set of tasks
 	reloadCurrent = false;
 	finishedJobCount = 0;
 	totalJobCount = current->jobs.size();
-	semaphore.Increment(totalJobCount);
+	semaphore.Increment(current->unique_chunks.size());
+	current->unique_chunks.clear();
 }
 
 uint64_t ProtoVoxel::Voxel::ChunkJobManager::ChunkJob::get_sorter() const
@@ -128,12 +212,12 @@ uint64_t ProtoVoxel::Voxel::ChunkJobManager::ChunkJob::get_sorter() const
 	return static_cast<uint64_t>(type) | ((uint64_t)chunk_id << 32);
 }
 
-bool ProtoVoxel::Voxel::operator<(const struct ProtoVoxel::Voxel::ChunkJobManager::ChunkJob &lhs, const struct ProtoVoxel::Voxel::ChunkJobManager::ChunkJob &rhs)
+bool ProtoVoxel::Voxel::operator<(const struct ProtoVoxel::Voxel::ChunkJobManager::ChunkJob& lhs, const struct ProtoVoxel::Voxel::ChunkJobManager::ChunkJob& rhs)
 {
 	return lhs.get_sorter() < rhs.get_sorter();
 }
 
-bool ProtoVoxel::Voxel::operator>(const struct ProtoVoxel::Voxel::ChunkJobManager::ChunkJob &lhs, const struct ProtoVoxel::Voxel::ChunkJobManager::ChunkJob &rhs)
+bool ProtoVoxel::Voxel::operator>(const struct ProtoVoxel::Voxel::ChunkJobManager::ChunkJob& lhs, const struct ProtoVoxel::Voxel::ChunkJobManager::ChunkJob& rhs)
 {
 	return lhs.get_sorter() > rhs.get_sorter();
 }

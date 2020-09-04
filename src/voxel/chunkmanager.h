@@ -5,6 +5,7 @@
 #include "chunkupdater.h"
 #include "draw_cmdlist.h"
 #include "glm/glm.hpp"
+#include "chunkjobmanager.h"
 #include "graphics/framebuffer.h"
 #include "graphics/gpubuffer.h"
 #include "graphics/graphicspipeline.h"
@@ -21,7 +22,7 @@ namespace ProtoVoxel::Voxel
     {
     private:
         static const int GridSide = 64;
-        static const int GridHeight = 4;
+        static const int GridHeight = 32;
         static const int GridLen = GridSide * GridSide * GridHeight;
 
         struct draw_data_t
@@ -34,25 +35,25 @@ namespace ProtoVoxel::Voxel
         glm::ivec4 positions[GridLen];
 
         Chunk chnks[GridLen];
-        ProtoVoxel::Graphics::GraphicsPipeline pipeline;
-        ProtoVoxel::Voxel::MeshMalloc mesh_mem;
-        ProtoVoxel::Voxel::ChunkUpdater chnk_updater;
+        ProtoVoxel::Voxel::ChunkJobManager jobManager;
+        ProtoVoxel::Voxel::ChunkPalette palette;
         ProtoVoxel::Voxel::DrawCmdList draw_cmds;
+        ProtoVoxel::Voxel::MeshMalloc mesh_mem;
+
+        ProtoVoxel::Graphics::GraphicsPipeline pipeline;
         ProtoVoxel::Graphics::ShaderProgram render_prog;
+        
         ProtoVoxel::Graphics::Framebuffer* fbuf;
-        ProtoVoxel::Graphics::GpuBuffer pos_buf;
         ProtoVoxel::Graphics::Texture colorTgt;
         ProtoVoxel::Graphics::Texture depthTgt;
+        
         ProtoVoxel::Graphics::HiZ prev_mip_pyramid;
         ProtoVoxel::Graphics::HiZ cur_mip_pyramid;
-        ProtoVoxel::Voxel::ChunkPalette palette;
 
         ProtoVoxel::Graphics::ComputePipeline bucketPipeline;
         ProtoVoxel::Graphics::ShaderProgram bucket_prog;
         ProtoVoxel::Graphics::GpuBuffer out_draw_buffer;
         ProtoVoxel::Graphics::GpuBuffer out_splats_buffer;
-        ProtoVoxel::Graphics::GpuBuffer out_pos_buf;
-        ProtoVoxel::Graphics::GpuBuffer out_splats_pos_buf;
 
         ProtoVoxel::Graphics::ComputePipeline splatPipeline;
         ProtoVoxel::Graphics::ShaderProgram splat_prog;
@@ -62,11 +63,9 @@ namespace ProtoVoxel::Voxel
         ProtoVoxel::Graphics::ShaderProgram resolve_prog;
 
         ProtoVoxel::Graphics::GpuBuffer out_occluded_draw_buf;
-        ProtoVoxel::Graphics::GpuBuffer out_occluded_pos_buf;
         ProtoVoxel::Graphics::ShaderProgram occludedCheck_prog;
         ProtoVoxel::Graphics::ComputePipeline occludedTestPipeline;
         ProtoVoxel::Graphics::GraphicsPipeline occludedPipeline;
-
 
         int draw_count;
 

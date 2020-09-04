@@ -1,6 +1,7 @@
 #pragma once
 
 #include "chunk.h"
+#include "glm/glm.hpp"
 #include <stdint.h>
 
 namespace ProtoVoxel::Voxel
@@ -24,7 +25,7 @@ namespace ProtoVoxel::Voxel
         };
 
         alignas(32) uint64_t mask_cache[Chunk::ChunkLen / 64];
-        alignas(32) uint8_t decompressed_cache[Chunk::ChunkLen];
+        alignas(32) uint8_t decompressed_cache[Chunk::ChunkLen + 32];
         alignas(32) uint8_t compressed_cache[Chunk::ChunkLen * 2];
         Chunk *active_chunk;
         ChunkUpdater::ChunkState active_state;
@@ -39,12 +40,12 @@ namespace ProtoVoxel::Voxel
 
         //Mesh building - require decompression
         uint32_t GetCompiledLength();
-        uint32_t Compile(uint32_t *inds_p);
+        uint32_t Compile(uint32_t *inds_p, glm::ivec3 &min_bounds, glm::ivec3 &max_bounds);
         //Block updates - require decompression
         void SetBlock(uint8_t x, uint8_t y, uint8_t z, uint8_t val);
         void SetColumn(uint8_t x, uint8_t z, uint8_t val);
         void SetAll(uint8_t val);
         //Ray casts - only require masks
-        void RayCast();
+        bool RayCast(const glm::vec3& o, const glm::vec3& dir, glm::vec3 &intersection);
     };
 } // namespace ProtoVoxel::Voxel

@@ -11,9 +11,11 @@ namespace ProtoVoxel::Graphics {
 
 		ProtoVoxel::Graphics::ShaderProgram hiz_setup;
 		ProtoVoxel::Graphics::ShaderProgram hiz_build;
+		ProtoVoxel::Graphics::ShaderProgram hiz_build8x8;
 
 		ProtoVoxel::Graphics::ComputePipeline setup_pipeline;
 		ProtoVoxel::Graphics::ComputePipeline build_pipeline;
+		ProtoVoxel::Graphics::ComputePipeline build8x8_pipeline;
 
 		int lvls, w, h;
 	public:

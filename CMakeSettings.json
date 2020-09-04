@@ -22,7 +22,13 @@
       "buildCommandArgs": "",
       "ctestCommandArgs": "",
       "inheritEnvironments": [ "clang_cl_x64_x64" ],
-      "variables": []
+      "variables": [
+        {
+          "name": "CMAKE_EXE_LINKER_FLAGS",
+          "value": "/machine:x64 /PROFILE",
+          "type": "STRING"
+        }
+      ]
     },
     {
       "name": "WSL-GCC-Release",

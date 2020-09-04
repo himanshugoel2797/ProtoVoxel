@@ -1,7 +1,7 @@
 //ComputeShader
 #version 460
 
-layout (local_size_x = 1024, local_size_y = 1) in;
+layout (local_size_x = 64, local_size_y = 1) in;
 
 // Values that stay constant for the whole mesh.
 layout(std140, binding = 0) uniform GlobalParams_t {
@@ -22,30 +22,17 @@ layout(std140, binding = 0) uniform GlobalParams_t {
         vec4 eyeRight;
 } GlobalParams;
 
-layout(std430, binding = 0) readonly restrict buffer ChunkOffsets_t {
-    ivec4 v[];
-} ChunkOffsets;
-
-layout(std430, binding = 4) writeonly restrict buffer OutChunkOffsets_t {
-    ivec4 v[];
-} out_chunkoffs;
-
-layout(std430, binding = 5) writeonly restrict buffer SplatChunkOffsets_t {
-    ivec4 v[];
-} splat_chunkoffs;
-
-layout(std430, binding = 7) writeonly restrict buffer RejectChunkOffsets_t {
-    ivec4 v[];
-} reject_chunkoffs;
-
 struct draw_cmd_t {
 	uint count;
 	uint instanceCount;
 	uint baseVertex;
 	uint baseInstance;
+    ivec4 pos;
+    ivec4 min_bnd;
+    ivec4 max_bnd;
 };
 
-layout(std430, binding = 1) readonly restrict buffer InDrawCalls_t{
+layout(std430, binding = 0) readonly restrict buffer InDrawCalls_t{
 	uint cnt;
 	uint pd0;
 	uint pd1;
@@ -53,7 +40,7 @@ layout(std430, binding = 1) readonly restrict buffer InDrawCalls_t{
 	draw_cmd_t cmds[];
 } in_draws;
 
-layout(std430, binding = 2) restrict coherent buffer OutDrawCalls_t{
+layout(std430, binding = 1) restrict coherent buffer OutDrawCalls_t{
 	uint cnt;
 	uint pd0;
 	uint pd1;
@@ -61,7 +48,7 @@ layout(std430, binding = 2) restrict coherent buffer OutDrawCalls_t{
 	draw_cmd_t cmds[];
 } out_draws;
 
-layout(std430, binding = 3) restrict coherent buffer Splats_t{
+layout(std430, binding = 2) restrict coherent buffer Splats_t{
 	uint cnt;
 	uint pd0;
 	uint pd1;
@@ -69,7 +56,7 @@ layout(std430, binding = 3) restrict coherent buffer Splats_t{
 	draw_cmd_t cmds[];
 } splats;
 
-layout(std430, binding = 6) restrict coherent buffer Rejects_t{
+layout(std430, binding = 3) restrict coherent buffer Rejects_t{
 	uint cnt;
 	uint pd0;
 	uint pd1;
@@ -79,27 +66,37 @@ layout(std430, binding = 6) restrict coherent buffer Rejects_t{
 
 uniform layout(binding = 0) sampler2D hiz_map;
 
-vec4 offsets[8] = vec4[] (
-    vec4(15, 31, 15, 0),
-    vec4(15, 31, -15, 0),
-    vec4(15, -31, 15, 0),
-    vec4(15, -31, -15, 0),
-    vec4(-15, 31, 15, 0),
-    vec4(-15, 31, -15, 0),
-    vec4(-15, -31, 15, 0),
-    vec4(-15, -31, -15, 0)
-);
 
 void main(){
 	uint DrawID = gl_GlobalInvocationID.x;
     if (DrawID >= in_draws.cnt)
         return;
 
-    vec3 UV = vec3(ChunkOffsets.v[DrawID].x + 15, ChunkOffsets.v[DrawID].y + 31, ChunkOffsets.v[DrawID].z + 15);
+    rejects.pd1 = rejects.pd2 = 1;
+    out_draws.pd0 = out_draws.pd1 = out_draws.pd2 = 1;
+    splats.pd1 = 1;
+    
+    vec3 min_bnd = in_draws.cmds[DrawID].min_bnd.xyz;
+    vec3 max_bnd = in_draws.cmds[DrawID].max_bnd.xyz;
+    vec3 bnd_diff = max_bnd - min_bnd;
+    float bnd_sz = min(min(bnd_diff.x, bnd_diff.y), bnd_diff.z);
+
+vec4 offsets[8] = vec4[] (
+    vec4(max_bnd.x, max_bnd.y, max_bnd.z, 0),
+    vec4(max_bnd.x, max_bnd.y, min_bnd.z, 0),
+    vec4(max_bnd.x, min_bnd.y, max_bnd.z, 0),
+    vec4(max_bnd.x, min_bnd.y, min_bnd.z, 0),
+    vec4(min_bnd.x, max_bnd.y, max_bnd.z, 0),
+    vec4(min_bnd.x, max_bnd.y, min_bnd.z, 0),
+    vec4(min_bnd.x, min_bnd.y, max_bnd.z, 0),
+    vec4(min_bnd.x, min_bnd.y, min_bnd.z, 0)
+);
+
+    vec3 UV = vec3(in_draws.cmds[DrawID].pos.x, in_draws.cmds[DrawID].pos.y, in_draws.cmds[DrawID].pos.z);
 	vec4 bbox;
     bbox = GlobalParams.vp * (vec4(UV, 1) + offsets[0]);
     bbox /= bbox.w;
-    
+
     vec3 max_comps = bbox.xyz;
     vec3 min_comps = bbox.xyz;
 
@@ -137,28 +134,33 @@ void main(){
             if (sampledDepth >= max_comps.z)    //If the chunk is fully behind the sampled depth, don't render it
             {
                 uint idx = atomicAdd(rejects.cnt, 1);
+                atomicMax(rejects.pd0, int(idx + 63) / 64);
                 rejects.cmds[idx].count = in_draws.cmds[DrawID].count;
-                rejects.cmds[idx].instanceCount = in_draws.cmds[DrawID].instanceCount;
+                rejects.cmds[idx].instanceCount = 1;
                 rejects.cmds[idx].baseVertex = in_draws.cmds[DrawID].baseVertex;
-                rejects.cmds[idx].baseInstance = in_draws.cmds[DrawID].baseInstance;
-                reject_chunkoffs.v[idx] = ChunkOffsets.v[DrawID];
-            } else if (max_rad <= 60)
+                rejects.cmds[idx].baseInstance = 0;
+                rejects.cmds[idx].pos = in_draws.cmds[DrawID].pos;
+                rejects.cmds[idx].min_bnd = in_draws.cmds[DrawID].min_bnd;
+                rejects.cmds[idx].max_bnd = in_draws.cmds[DrawID].max_bnd;
+                rejects.cmds[idx].pos = in_draws.cmds[DrawID].pos;
+            } else if (max_rad <= 2 * bnd_sz)
             {
                 //Splat voxels via compute
                 uint idx = atomicAdd(splats.cnt, 1);
+                atomicMax(splats.pd0, int(in_draws.cmds[DrawID].count + 255) / 256 );
                 splats.cmds[idx].count = in_draws.cmds[DrawID].count;
-                splats.cmds[idx].instanceCount = in_draws.cmds[DrawID].instanceCount;
+                splats.cmds[idx].instanceCount = 1;
                 splats.cmds[idx].baseVertex = in_draws.cmds[DrawID].baseVertex;
-                splats.cmds[idx].baseInstance = in_draws.cmds[DrawID].baseInstance;
-                splat_chunkoffs.v[idx] = ChunkOffsets.v[DrawID];
+                splats.cmds[idx].baseInstance = 0;
+                splats.cmds[idx].pos = in_draws.cmds[DrawID].pos;
             }else
             {
                 //Splat voxels via raster
                 uint idx = atomicAdd(out_draws.cnt, 1);
                 out_draws.cmds[idx].count = in_draws.cmds[DrawID].count;
-                out_draws.cmds[idx].instanceCount = in_draws.cmds[DrawID].instanceCount;
+                out_draws.cmds[idx].instanceCount = 1;
                 out_draws.cmds[idx].baseVertex = in_draws.cmds[DrawID].baseVertex;
-                out_draws.cmds[idx].baseInstance = in_draws.cmds[DrawID].baseInstance;
-                out_chunkoffs.v[idx] = ChunkOffsets.v[DrawID];
+                out_draws.cmds[idx].baseInstance = 0;
+                out_draws.cmds[idx].pos = in_draws.cmds[DrawID].pos;
             }
 }
