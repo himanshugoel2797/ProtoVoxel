@@ -22,7 +22,7 @@ namespace ProtoVoxel::Voxel
     {
     private:
         static const int GridSide = 64;
-        static const int GridHeight = 32;
+        static const int GridHeight = 16;
         static const int GridLen = GridSide * GridSide * GridHeight;
 
         struct draw_data_t

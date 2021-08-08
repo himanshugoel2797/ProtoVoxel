@@ -88,21 +88,30 @@ void main(){
             bbox[6] /= bbox[6].w;
             bbox[7] /= bbox[7].w;
             
-            vec2 max_comps = max( max( max( bbox[0].xy, bbox[1].xy), 
-                                       max( bbox[2].xy, bbox[3].xy)),  
-                                  max( max( bbox[4].xy, bbox[5].xy), 
-                                       max( bbox[6].xy, bbox[7].xy)));
+            vec3 max_comps = max( max( max( bbox[0].xyz, bbox[1].xyz), 
+                                       max( bbox[2].xyz, bbox[3].xyz)),  
+                                  max( max( bbox[4].xyz, bbox[5].xyz), 
+                                       max( bbox[6].xyz, bbox[7].xyz)));
 
-            vec2 min_comps = min( min( min( bbox[0].xy, bbox[1].xy), 
-                                       min( bbox[2].xy, bbox[3].xy)), 
-                                  min( min( bbox[4].xy, bbox[5].xy), 
-                                       min( bbox[6].xy, bbox[7].xy)));
+            vec3 min_comps = min( min( min( bbox[0].xyz, bbox[1].xyz), 
+                                       min( bbox[2].xyz, bbox[3].xyz)), 
+                                  min( min( bbox[4].xyz, bbox[5].xyz), 
+                                       min( bbox[6].xyz, bbox[7].xyz)));
 
-            vec2 dvec0 = (max_comps - min_comps);
+            max_comps.xy = clamp(max_comps.xy, vec2(-1), vec2(1));
+            min_comps.xy = clamp(min_comps.xy, vec2(-1), vec2(1));
+            
+            vec2 dvec0 = (max_comps.xy - min_comps.xy);
+            
+            float area = dvec0.x * dvec0.y;
             float max_radius = max(dvec0.x, dvec0.y) * 0.5f;
-            gl_PointSize = 1024.0f * max_radius * 1.1f;
 
-            //gl_Position = vec4(x, y, z, 1);
-            gl_Position = GlobalParams.vp * vec4(UV, 1);
-            //gl_PointSize = (1024.0f * 1.5f) / gl_Position.w;
+            gl_PointSize = 1024.0f * max_radius * 1.1f;
+            gl_Position = vec4( (min_comps.xy + max_comps.xy) * 0.5f, 0.5f, 1.0f );
+            
+            //TODO: Large performance regression when point is too large
+            if (area <= 0 || max_radius <= 0 || max_radius >= 1024.0f){
+                gl_Position = vec4(2, 2, 2, 1);
+                gl_PointSize = 1;
+            }
 }

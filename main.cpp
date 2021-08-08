@@ -8,6 +8,7 @@
 #include "voxel/mortoncode.h"
 
 #include "voxel/PerlinNoise.h"
+#include "misc/model.h"
 
 #include "imgui/imgui.h"
 
@@ -22,6 +23,7 @@ namespace PVC = ProtoVoxel::Core;
 namespace PVG = ProtoVoxel::Graphics;
 namespace PVV = ProtoVoxel::Voxel;
 namespace PVSG = ProtoVoxel::SceneGraph;
+namespace PVM = ProtoVoxel::Misc;
 
 class TestScene : public PVSG::SceneBase
 {
@@ -36,6 +38,9 @@ public:
     void Initialize() override
     {
         PVSG::SceneBase::Initialize();
+
+        PVM::Model mdl;
+        PVM::Model::LoadModel("test.glb", mdl);
 
         palette.Initialize();
         for (int i = 255; i >= 0; i--)

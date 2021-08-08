@@ -50,7 +50,6 @@ void PVV::ChunkManager::Initialize(ChunkPalette& palette)
 	uint32_t idx_offset = 0;
 	uint32_t pos_offset = 0;
 
-	auto startTime = std::chrono::high_resolution_clock::now().time_since_epoch().count();
 	draw_cmds.BeginFrame();
 	for (int i = 0; i < GridLen; i++)
 	{
@@ -66,10 +65,6 @@ void PVV::ChunkManager::Initialize(ChunkPalette& palette)
 	}
 	jobManager.EndFrame();
 
-	auto stopTime = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-	std::cout << "Generation time: " << (stopTime - startTime) / 1000000.0 << "ms" << std::endl;
-	std::cout << "Splatted Voxels: " << idx_offset << std::endl;
-
 	PVG::ShaderSource vert(GL_VERTEX_SHADER), frag(GL_FRAGMENT_SHADER);
 	vert.SetSourceFile("shaders/splatting/vertex.glsl");
 	vert.Compile();
@@ -80,7 +75,6 @@ void PVV::ChunkManager::Initialize(ChunkPalette& palette)
 	render_prog.Attach(vert);
 	render_prog.Attach(frag);
 	render_prog.Link();
-
 
 	PVG::ShaderSource vert_(GL_VERTEX_SHADER), frag_(GL_FRAGMENT_SHADER);
 	vert_.SetSourceFile("shaders/splatting/resolve_vtx.glsl");
@@ -248,11 +242,11 @@ void PVV::ChunkManager::Render(PVG::GpuBuffer* camera_buffer, double time)
 	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glCullFace(GL_BACK);
 	glEnable(GL_DEPTH_TEST);
-	glEnable(GL_CULL_FACE);
+	//glEnable(GL_CULL_FACE);
 	glEnable(GL_PROGRAM_POINT_SIZE);
 
 	PVG::GraphicsDevice::MultiDrawIndirectCount(PVG::Topology::Points, 16, 0, PVV::DrawCmdList::Stride, draw_count);
-
+	
 	PVG::GraphicsDevice::BindGraphicsPipeline(resolvePipeline);
 	glDisable(GL_CULL_FACE);
 	glDrawArrays(GL_TRIANGLES, 0, 3);
@@ -265,7 +259,6 @@ void PVV::ChunkManager::Render(PVG::GpuBuffer* camera_buffer, double time)
 
 	PVG::GraphicsDevice::BindGraphicsPipeline(occludedPipeline);
 	PVG::GraphicsDevice::MultiDrawIndirectCount(PVG::Topology::Points, 16, 0, PVV::DrawCmdList::Stride, draw_count);
-
 
 
 	glBlitNamedFramebuffer(fbuf->GetID(), 0, 0, 0, 1024, 1024, 0, 0, 1024, 1024, GL_COLOR_BUFFER_BIT, GL_LINEAR);

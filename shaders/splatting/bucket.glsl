@@ -32,6 +32,20 @@ struct draw_cmd_t {
     ivec4 max_bnd;
 };
 
+struct draw_cmd_indexed_t {
+	uint count;
+	uint instanceCount;
+    uint firstIndex;
+	uint baseVertex;
+	uint baseInstance;
+    uint pd0;
+    uint pd1;
+    uint pd2;
+    ivec4 pos;
+    ivec4 min_bnd;
+    ivec4 max_bnd;
+};
+
 layout(std430, binding = 0) readonly restrict buffer InDrawCalls_t{
 	uint cnt;
 	uint pd0;
@@ -156,6 +170,7 @@ vec4 offsets[8] = vec4[] (
             
             vec2 dvec0 = (max_comps.xy - min_comps.xy) * 1024.0f;  //Convert to pixels
             float max_rad = max(dvec0.x, dvec0.y);
+            float area = dvec0.x * dvec0.y;
 
             //Choose a mipmap level to test against
             float lod = ceil( log2 ( max_rad ));
@@ -167,8 +182,11 @@ vec4 offsets[8] = vec4[] (
             float sampledDepth = min(min(samples.x, samples.y), min(samples.z, samples.w));
             //min=farthest point, max=nearest point
 
-            if (max_rad == 0)  //Out of view
+            if (area == 0)
                 return;
+            
+            if (min_comps.z > 1)
+                return; //chunk is behind camera
 
             if (sampledDepth >= max_comps.z)    //If the chunk is fully behind the sampled depth, don't render it
             {
@@ -228,6 +246,7 @@ vec4 offsets[8] = vec4[] (
                 uint idx = atomicAdd(out_draws.cnt, 1);
                 out_draws.cmds[idx].count = in_draws.cmds[DrawID].count;
                 out_draws.cmds[idx].instanceCount = 1;
+                //out_draws.cmds[idx].firstIndex = 0;
                 out_draws.cmds[idx].baseVertex = in_draws.cmds[DrawID].baseVertex;
                 out_draws.cmds[idx].baseInstance = 0;
                 out_draws.cmds[idx].pos = in_draws.cmds[DrawID].pos;
