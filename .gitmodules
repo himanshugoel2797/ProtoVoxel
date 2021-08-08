@@ -1,0 +1,6 @@
+[submodule "tinygltf"]
+	path = tinygltf
+	url = https://github.com/syoyo/tinygltf.git
+[submodule "luajit"]
+	path = luajit
+	url = https://luajit.org/git/luajit.git
