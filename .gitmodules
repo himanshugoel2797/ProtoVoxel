@@ -4,3 +4,6 @@
 [submodule "Lua"]
 	path = Lua
 	url = https://github.com/himanshugoel2797/Lua.git
+[submodule "openvr"]
+	path = openvr
+	url = https://github.com/ValveSoftware/openvr.git

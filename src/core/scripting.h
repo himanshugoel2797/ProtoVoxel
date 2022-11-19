@@ -4,12 +4,12 @@
 // https://opensource.org/licenses/MIT
 
 #pragma once
-#include "lua.hpp"
+//#include "lua.hpp"
 
 namespace ProtoVoxel::Core {
     class Script {
         private:
-            lua_State* state;
+            //lua_State* state;
         public:
             Script();
             ~Script();

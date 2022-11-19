@@ -26,7 +26,8 @@ static void gl_debug_callback(GLenum src, GLenum type, GLuint id,
                               GLenum severity, GLsizei length,
                               const GLchar *message, const void *userParam)
 {
-    printf("OpenGL Debug Message: %s\n", message);
+    if ((type == GL_DEBUG_TYPE_ERROR) | (type == GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR) | (type == GL_DEBUG_TYPE_PERFORMANCE))
+        printf("OpenGL Debug Message: %s\n", message);
 }
 
 static bool glfwInited = false;
