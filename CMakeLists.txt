@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.9.4)
 project(ProtoVoxel VERSION 0.1.0)
 
 find_package(OpenGL REQUIRED)
+find_package(CUDA REQUIRED)
+
+enable_language(CUDA)
 
 add_library(glad ${CMAKE_SOURCE_DIR}/glad/glad.c)
 target_include_directories(glad PRIVATE ${CMAKE_SOURCE_DIR})
@@ -14,6 +17,8 @@ file(GLOB_RECURSE SRC_FILES ${CMAKE_SOURCE_DIR}/src/*.cpp)
 add_executable(ProtoVoxel main.cpp ${SRC_FILES})
 set_property(TARGET ProtoVoxel PROPERTY CXX_STANDARD 17)
 set_property(TARGET ProtoVoxel PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+set_property(TARGET ProtoVoxel PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+set_property(TARGET ProtoVoxel PROPERTY CUDA_ARCHITECTURES 80)
 
 set(TINYGLTF_HEADER_ONLY ON CACHE INTERNAL "" FORCE)
 set(TINYGLTF_INSTALL OFF CACHE INTERNAL "" FORCE)

@@ -3,11 +3,9 @@
 #include "graphics/gpubuffer.h"
 #include "graphics/graphicsdevice.h"
 #include "scenegraph/scenebase.h"
-#include "voxel/chunkmanager.h"
-#include "voxel/chunkjobmanager.h"
-#include "voxel/mortoncode.h"
+#include "pointcloud/chunkmanager.h"
+#include "pointcloud/chunkjobmanager.h"
 
-#include "voxel/PerlinNoise.h"
 #include "misc/model.h"
 
 #include "imgui/imgui.h"
@@ -21,7 +19,7 @@
 
 namespace PVC = ProtoVoxel::Core;
 namespace PVG = ProtoVoxel::Graphics;
-namespace PVV = ProtoVoxel::Voxel;
+namespace PPC = ProtoVoxel::PointCloud;
 namespace PVSG = ProtoVoxel::SceneGraph;
 namespace PVM = ProtoVoxel::Misc;
 
@@ -32,21 +30,13 @@ public:
     TestScene() {}
     ~TestScene() {}
 
-    PVV::ChunkPalette palette;
-    PVV::ChunkManager manager;
+    PPC::ChunkManager manager;
     
     void Initialize() override
     {
         PVSG::SceneBase::Initialize();
 
-        PVM::Model mdl;
-        PVM::Model::LoadModel("test.glb", mdl);
-
-        palette.Initialize();
-        for (int i = 255; i >= 0; i--)
-            palette.Register(glm::vec4(0, i / 255.0, 0, 1));
-
-        manager.Initialize(palette);
+        manager.Initialize();
     }
 
     void Update(double time) override

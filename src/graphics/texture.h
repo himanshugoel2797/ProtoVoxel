@@ -19,7 +19,7 @@ namespace ProtoVoxel::Graphics {
         void SetStorage(GLenum target, int levels, int internalFormat, size_t w,
             size_t h);
         void SetStorage(GLenum target, int levels, int internalFormat, size_t w);
-        void Clear(int lv, int internalFormat);
+        void Clear(int lv, int internalFormat, int type = GL_BYTE);
 
         inline void SetName(const char* name);
         
