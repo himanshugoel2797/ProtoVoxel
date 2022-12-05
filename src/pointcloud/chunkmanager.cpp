@@ -57,13 +57,14 @@ void PPC::ChunkManager::Initialize()
                 pos[1] /= len;
                 pos[2] /= len;
 
+				mem[idx].r = (int)(pos[0] * 255) * 2;
+				mem[idx].g = (int)(pos[1] * 255) * 2;
+				mem[idx].b = (int)(pos[2] * 255) * 2;
+				mem[idx].a = 255;
+
                 mem[idx].pos[0] = (int)(pos[0] * 10000);
                 mem[idx].pos[1] = (int)(pos[1] * 10000);
                 mem[idx].pos[2] = (int)(pos[2] * 10000);
-                mem[idx].r = (y * 255) / sideSteps;
-                mem[idx].g = (x * 255) / sideSteps;
-                mem[idx].b = 255;
-                mem[idx].a = 255;
                 idx++;
             }
         }

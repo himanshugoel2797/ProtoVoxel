@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.9.4)
 project(ProtoVoxel VERSION 0.1.0)
 
 find_package(OpenGL REQUIRED)
-find_package(CUDA REQUIRED)
+find_package(CUDAToolkit REQUIRED)
 
 enable_language(CUDA)
 
@@ -30,10 +30,10 @@ set_target_properties(ProtoVoxel PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY ${CMAK
 
 target_compile_options(ProtoVoxel PRIVATE -mavx2 -mbmi)
 target_link_directories(ProtoVoxel PRIVATE ${CMAKE_SOURCE_DIR}/glfw/lib-vc2019)
-target_link_libraries(ProtoVoxel glfw glad imgui OpenGL::GL ${CMAKE_DL_LIBS}) #lua_static
+target_link_libraries(ProtoVoxel glfw glad imgui OpenGL::GL ${CMAKE_DL_LIBS} CUDA::cudart) #lua_static
 target_compile_definitions(ProtoVoxel PRIVATE DEBUG)
 target_compile_definitions(ProtoVoxel PRIVATE _USE_MATH_DEFINES)
-target_include_directories(ProtoVoxel PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/glfw/include ${CMAKE_SOURCE_DIR}/tinygltf)# ${CMAKE_SOURCE_DIR}/Lua/lua-5.4.3/include)
+target_include_directories(ProtoVoxel PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/glfw/include ${CMAKE_SOURCE_DIR}/tinygltf ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})# ${CMAKE_SOURCE_DIR}/Lua/lua-5.4.3/include)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})

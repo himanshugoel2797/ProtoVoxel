@@ -8,6 +8,10 @@
 #include <stdio.h>
 #include <unordered_map>
 
+#include <cuda_runtime.h>
+#include <device_launch_parameters.h>
+#include <cuda_gl_interop.h>
+
 namespace PVC = ProtoVoxel::Core;
 namespace PVG = ProtoVoxel::Graphics;
 
@@ -108,6 +112,17 @@ void PVC::Window::InitGL()
     ImGui::StyleColorsDark();
     ImGui_ImplGlfw_InitForOpenGL(winHndl, true);
     ImGui_ImplOpenGL3_Init("#version 460 core");
+
+    uint32_t cudaDeviceCount = 0;
+    cudaGLGetDevices(&cudaDeviceCount, NULL, 1, cudaGLDeviceListAll);
+    if(cudaDeviceCount == 0)
+    {
+        printf("ERROR: No CUDA capable devices found.\n");
+    }
+    else 
+    {
+        printf("CUDA Device Count: %d\n", cudaDeviceCount);
+    }
 
     printf("GL Renderer: %s\n", renderer);
     printf("GL Version: %s\n", version);
