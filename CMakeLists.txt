@@ -14,7 +14,8 @@ add_library(imgui ${IMGUI_SRC_FILES})
 target_include_directories(imgui PRIVATE ${CMAKE_SOURCE_DIR}/imgui ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/glfw/include)
 
 file(GLOB_RECURSE SRC_FILES ${CMAKE_SOURCE_DIR}/src/*.cpp)
-add_executable(ProtoVoxel main.cpp ${SRC_FILES})
+file(GLOB_RECURSE CUDA_SRC_FILES ${CMAKE_SOURCE_DIR}/src/*.cu)
+add_executable(ProtoVoxel main.cpp ${SRC_FILES} ${CUDA_SRC_FILES})
 set_property(TARGET ProtoVoxel PROPERTY CXX_STANDARD 17)
 set_property(TARGET ProtoVoxel PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 set_property(TARGET ProtoVoxel PROPERTY CUDA_SEPARABLE_COMPILATION ON)
@@ -28,7 +29,7 @@ set_target_properties(ProtoVoxel PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY ${CMAK
 
 #add_subdirectory(lua)
 
-target_compile_options(ProtoVoxel PRIVATE -mavx2 -mbmi)
+#target_compile_options(ProtoVoxel PRIVATE -mavx2 -mbmi)
 target_link_directories(ProtoVoxel PRIVATE ${CMAKE_SOURCE_DIR}/glfw/lib-vc2019)
 target_link_libraries(ProtoVoxel glfw glad imgui OpenGL::GL ${CMAKE_DL_LIBS} CUDA::cudart) #lua_static
 target_compile_definitions(ProtoVoxel PRIVATE DEBUG)

@@ -15,6 +15,12 @@
 #include "mesh_malloc.h"
 #include <stdint.h>
 
+#include <cuda_runtime.h>
+#include <device_launch_parameters.h>
+#include <cuda_gl_interop.h>
+
+#define  POS_SCALE_FACTOR 10000.0f
+
 namespace ProtoVoxel::PointCloud
 {
     class ChunkManager
@@ -40,6 +46,14 @@ namespace ProtoVoxel::PointCloud
         
         ProtoVoxel::Graphics::Framebuffer* fbuf;
         ProtoVoxel::Graphics::Texture colorTgt;
+
+        ProtoVoxel::Graphics::Framebuffer* fbuf0;
+        ProtoVoxel::Graphics::Texture colorTgt0;
+
+        ProtoVoxel::Graphics::Texture* colorTgt_cur;
+        ProtoVoxel::Graphics::Texture* colorTgt_n;
+        ProtoVoxel::Graphics::Framebuffer* fbuf_cur;
+        ProtoVoxel::Graphics::Framebuffer* fbuf_n;
         
         ProtoVoxel::Graphics::ComputePipeline splatPipeline;
         ProtoVoxel::Graphics::ShaderProgram splat_prog;
@@ -50,6 +64,8 @@ namespace ProtoVoxel::PointCloud
         ProtoVoxel::Graphics::ShaderProgram resolve_prog;
 
         int draw_count;
+
+        void splat(void* global_vars, void* splat_points, void* pointBuffer, cudaSurfaceObject_t colorBuffer, int w, int h, int draw_count);
 
     public:
         ChunkManager();

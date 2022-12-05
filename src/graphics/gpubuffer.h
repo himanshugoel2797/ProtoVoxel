@@ -4,12 +4,17 @@
 #include <memory>
 #include "glad/glad.h"
 
+#include <cuda_runtime.h>
+#include <device_launch_parameters.h>
+#include <cuda_gl_interop.h>
+
 namespace ProtoVoxel::Graphics
 {
     class GpuBuffer
     {
     private:
         uint32_t id;
+        cudaGraphicsResource_t cuda_res;
 
     public:
         GpuBuffer();
@@ -22,6 +27,9 @@ namespace ProtoVoxel::Graphics
         void Unmap();
         void Flush(uint32_t offset, uint32_t len);
         void Clear(uint32_t offset, uint32_t len);
+
+        void *GetCudaDevicePointer();
+        void UnmapCudaDevicePointer();
 
         inline void SetName(const char* name);
 

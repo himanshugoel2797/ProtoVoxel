@@ -28,16 +28,18 @@ typedef struct {
     int32_t a : 8;
 } pointdata_t;
 uint32_t pointsCount;
+pointdata_t* points_data;
 
 void PPC::ChunkManager::Initialize()
 {
 	mesh_mem.Initialize();
-    int sideSteps = 2048;
-    float sideLen = 0.1f;
+    int sideSteps = 256;
+    float sideLen = 1.0f;
     pointsCount = sideSteps * sideSteps * 6;
     uint32_t loopback_cnt = 0;
 
-    pointdata_t* mem = (pointdata_t*)mesh_mem.Alloc(pointsCount * sizeof(pointdata_t), loopback_cnt);
+	cudaMallocManaged(&points_data, pointsCount * sizeof(pointdata_t));
+	pointdata_t* mem = points_data;//(pointdata_t*)mesh_mem.Alloc(pointsCount * sizeof(pointdata_t), loopback_cnt);
     int idx = 0;
     for (int face = 0; face < 3; face++)
     {
@@ -52,24 +54,24 @@ void PPC::ChunkManager::Initialize()
                 pos[(face + 2) % 3] = (y / (float)(sideSteps - 1)) * sideLen;
 
                 //Normalize pos
-				float len = 1.0f;//sqrtf(pos[0] * pos[0] + pos[1] * pos[1] + pos[2] * pos[2]);
+				float len = sqrtf(pos[0] * pos[0] + pos[1] * pos[1] + pos[2] * pos[2]);
                 pos[0] /= len;
                 pos[1] /= len;
                 pos[2] /= len;
 
-				mem[idx].r = (int)(pos[0] * 255) * 2;
-				mem[idx].g = (int)(pos[1] * 255) * 2;
-				mem[idx].b = (int)(pos[2] * 255) * 2;
+				mem[idx].r = (int)(pos[0] * 255);
+				mem[idx].g = (int)(pos[1] * 255);
+				mem[idx].b = (int)(pos[2] * 255);
 				mem[idx].a = 255;
 
-                mem[idx].pos[0] = (int)(pos[0] * 10000);
-                mem[idx].pos[1] = (int)(pos[1] * 10000);
-                mem[idx].pos[2] = (int)(pos[2] * 10000);
+                mem[idx].pos[0] = (int)(pos[0] * POS_SCALE_FACTOR);
+                mem[idx].pos[1] = (int)(pos[1] * POS_SCALE_FACTOR);
+                mem[idx].pos[2] = (int)(pos[2] * POS_SCALE_FACTOR);
                 idx++;
             }
         }
     }
-    mesh_mem.Flush((uint32_t*)mem, pointsCount * sizeof(pointdata_t));
+    //mesh_mem.Flush((uint32_t*)mem, pointsCount * sizeof(pointdata_t));
 
 	jobManager.Initialize(&mesh_mem, &draw_cmds);
 	/*
@@ -104,11 +106,22 @@ void PPC::ChunkManager::Initialize()
 	fbuf->Attach(GL_COLOR_ATTACHMENT0, colorTgt, 0);
 	fbuf->DrawBuffers(1, fbuf_drawbufs);
 
+	fbuf0 = new PVG::Framebuffer(1024, 1024);
+	colorTgt0.SetStorage(GL_TEXTURE_2D, 1, GL_RGBA8, 1024, 1024);
+	fbuf0->Attach(GL_COLOR_ATTACHMENT0, colorTgt0, 0);
+	fbuf0->DrawBuffers(1, fbuf_drawbufs);
+
 	splatPipeline.SetIndirectBuffer(&splat_cmdbuffer, 0, PPC::DrawCmdList::ListSize);
 	splatPipeline.SetShaderProgram(&splat_prog);
 	splatPipeline.SetSSBO(0, mesh_mem.GetBuffer(), 0, 500 * 1024 * 1024);
 	splatPipeline.SetImage(0, &pointBuffer, GL_R32UI, GL_READ_WRITE, 0);
     splatPipeline.SetImage(1, &colorTgt, GL_RGBA8, GL_READ_WRITE, 0);
+
+	colorTgt_cur = &colorTgt;
+	colorTgt_n = &colorTgt0;
+
+	fbuf_cur = fbuf;
+	fbuf_n = fbuf0;
 }
 
 void PPC::ChunkManager::Update(glm::vec4 camPos, glm::mat4 vp, PVG::GpuBuffer* camera_buffer)
@@ -120,6 +133,13 @@ void PPC::ChunkManager::Update(glm::vec4 camPos, glm::mat4 vp, PVG::GpuBuffer* c
 
     splatPipeline.SetUBO(0, camera_buffer, 0, sizeof(ProtoVoxel::Core::GlobalParameters));
 	resolvePipeline.SetUBO(0, camera_buffer, 0, sizeof(ProtoVoxel::Core::GlobalParameters));
+	auto tmp = colorTgt_cur;
+	colorTgt_cur = colorTgt_n;
+	colorTgt_n = tmp;
+
+	auto tmp0 = fbuf_cur;
+	fbuf_cur = fbuf_n;
+	fbuf_n = tmp0;
 }
 
 void PPC::ChunkManager::Render(PVG::GpuBuffer* camera_buffer, double time)
@@ -130,12 +150,27 @@ void PPC::ChunkManager::Render(PVG::GpuBuffer* camera_buffer, double time)
 
 	glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
     pointBuffer.Clear(0, GL_RED_INTEGER, GL_UNSIGNED_INT);
-	colorTgt.Clear(0, GL_RGBA);
-    PVG::GraphicsDevice::BindComputePipeline(splatPipeline);
-    glDispatchCompute(pointsCount / 128, 1, 1);
+	colorTgt_cur->Clear(0, GL_RGBA);
+
+	cudaSurfaceObject_t colorPtr = colorTgt_cur->GetCudaDevicePointer();
+	void* srcPointPtr = points_data;//mesh_mem.GetBuffer()->GetCudaDevicePointer();
+	void* global_vars = camera_buffer->GetCudaDevicePointer();
+	void* pointBfr;
+	cudaMallocAsync(&pointBfr, 1024 * 1024 * sizeof(uint32_t), 0);
+	cudaMemsetAsync(pointBfr, 0, 1024 * 1024 * 4);
+
+	//Call cuda-based point renderer
+	splat(global_vars, srcPointPtr, pointBfr, colorPtr, 1024, 1024, pointsCount);
+
+	cudaFreeAsync(pointBfr, 0);
+	camera_buffer->UnmapCudaDevicePointer();
+	//mesh_mem.GetBuffer()->UnmapCudaDevicePointer();
+	colorTgt_cur->UnmapCudaDevicePointer(colorPtr);
+	//PVG::GraphicsDevice::BindComputePipeline(splatPipeline);
+    //glDispatchCompute(pointsCount / 128, 1, 1);
 
     //Show the point buffer on screen
-	glBlitNamedFramebuffer(fbuf->GetID(), 0, 0, 0, 1024, 1024, 0, 0, 1024, 1024, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+	glBlitNamedFramebuffer(fbuf_cur->GetID(), 0, 0, 0, 1024, 1024, 0, 0, 1024, 1024, GL_COLOR_BUFFER_BIT, GL_LINEAR);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	//draw_cmds.BeginFrame();

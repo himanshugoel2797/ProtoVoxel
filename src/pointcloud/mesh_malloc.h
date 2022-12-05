@@ -27,7 +27,7 @@ namespace ProtoVoxel::PointCloud
         //We expect to loop through this buffer such that older entries are naturally out of range by the time they're overwritten
 
     public:
-        static const uint64_t MallocPoolSize = 2ull * 512 * 1024 * 1024 * 10; //1GiB
+        static const uint64_t MallocPoolSize = 2ull * 512 * 1024 * 1024; //1GiB
         
         MeshMalloc();
         ~MeshMalloc();
