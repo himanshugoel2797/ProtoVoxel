@@ -39,7 +39,7 @@ void PPC::ChunkManager::Initialize()
     uint32_t loopback_cnt = 0;
 
 	cudaMallocManaged(&points_data, pointsCount * sizeof(pointdata_t));
-	pointdata_t* mem = points_data;//(pointdata_t*)mesh_mem.Alloc(pointsCount * sizeof(pointdata_t), loopback_cnt);
+	pointdata_t* mem = (pointdata_t*)mesh_mem.Alloc(pointsCount * sizeof(pointdata_t), loopback_cnt);
     int idx = 0;
     for (int face = 0; face < 3; face++)
     {
@@ -71,7 +71,7 @@ void PPC::ChunkManager::Initialize()
             }
         }
     }
-    //mesh_mem.Flush((uint32_t*)mem, pointsCount * sizeof(pointdata_t));
+    mesh_mem.Flush((uint32_t*)mem, pointsCount * sizeof(pointdata_t));
 
 	jobManager.Initialize(&mesh_mem, &draw_cmds);
 	/*
@@ -133,13 +133,13 @@ void PPC::ChunkManager::Update(glm::vec4 camPos, glm::mat4 vp, PVG::GpuBuffer* c
 
     splatPipeline.SetUBO(0, camera_buffer, 0, sizeof(ProtoVoxel::Core::GlobalParameters));
 	resolvePipeline.SetUBO(0, camera_buffer, 0, sizeof(ProtoVoxel::Core::GlobalParameters));
-	auto tmp = colorTgt_cur;
-	colorTgt_cur = colorTgt_n;
-	colorTgt_n = tmp;
+	//auto tmp = colorTgt_cur;
+	//colorTgt_cur = colorTgt_n;
+	//colorTgt_n = tmp;
 
-	auto tmp0 = fbuf_cur;
-	fbuf_cur = fbuf_n;
-	fbuf_n = tmp0;
+	//auto tmp0 = fbuf_cur;
+	//fbuf_cur = fbuf_n;
+	//fbuf_n = tmp0;
 }
 
 void PPC::ChunkManager::Render(PVG::GpuBuffer* camera_buffer, double time)
@@ -152,7 +152,7 @@ void PPC::ChunkManager::Render(PVG::GpuBuffer* camera_buffer, double time)
     pointBuffer.Clear(0, GL_RED_INTEGER, GL_UNSIGNED_INT);
 	colorTgt_cur->Clear(0, GL_RGBA);
 
-	cudaSurfaceObject_t colorPtr = colorTgt_cur->GetCudaDevicePointer();
+	/*cudaSurfaceObject_t colorPtr = colorTgt_cur->GetCudaDevicePointer();
 	void* srcPointPtr = points_data;//mesh_mem.GetBuffer()->GetCudaDevicePointer();
 	void* global_vars = camera_buffer->GetCudaDevicePointer();
 	void* pointBfr;
@@ -165,9 +165,9 @@ void PPC::ChunkManager::Render(PVG::GpuBuffer* camera_buffer, double time)
 	cudaFreeAsync(pointBfr, 0);
 	camera_buffer->UnmapCudaDevicePointer();
 	//mesh_mem.GetBuffer()->UnmapCudaDevicePointer();
-	colorTgt_cur->UnmapCudaDevicePointer(colorPtr);
-	//PVG::GraphicsDevice::BindComputePipeline(splatPipeline);
-    //glDispatchCompute(pointsCount / 128, 1, 1);
+	colorTgt_cur->UnmapCudaDevicePointer(colorPtr);*/
+	PVG::GraphicsDevice::BindComputePipeline(splatPipeline);
+    glDispatchCompute(pointsCount / 128, 1, 1);
 
     //Show the point buffer on screen
 	glBlitNamedFramebuffer(fbuf_cur->GetID(), 0, 0, 0, 1024, 1024, 0, 0, 1024, 1024, GL_COLOR_BUFFER_BIT, GL_LINEAR);
